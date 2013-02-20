@@ -12,7 +12,7 @@ or density.}
 \arguments{
   \item{formula}{formula for the surface. This should be a
   valid
-  \code{\link{glm}}/\code{\link{gam}}/code{\link{gamm}}
+  \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}}
   formula.}
 
   \item{ddf.obj}{result from call to \code{\link{ddf}} or
@@ -33,7 +33,8 @@ or density.}
 
   \item{family}{response distribution (popular choices
   include \code{\link{quasipoisson}}, \code{\link{Tweedie}}
-  and \code{\link{negbin}}.}
+  and \code{\link{negbin}}. Defaults to
+  \code{quasipossion}.}
 
   \item{\dots}{anything else to be passed straight to
   \code{\link{gam}}.}
@@ -65,6 +66,18 @@ or density.}
 \description{
   Given a detection function analysis, construct a density
   surface model (DSM) based on environmental covariates.
+}
+\details{
+  The response can be one of the following: \tabular{ll}{
+  \code{N}, \code{abundance} \tab count in each segment\cr
+  \code{Nhat}, \code{abundance.est} \tab estimated
+  abundance per segment, estimation is via a
+  Horvitz-Thompson estimator. This should be used when
+  there are covariates in the detection function.\cr
+  \code{presence} \tab interpret the data as
+  presence/absence (reember to change the \code{family}
+  argument to \code{binomial()}\cr \code{D}, \code{density}
+  \tab density per segment\cr }
 }
 \examples{
 library(Distance)
