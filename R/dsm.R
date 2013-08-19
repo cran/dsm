@@ -12,26 +12,26 @@
 #'              \code{D}, \code{density} \tab density per segment\cr
 #'  }
 #'
-#' @param formula formula for the surface. This should be a
-#'   valid \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}} formula.
-#' @param ddf.obj result from call to \code{\link{ddf}} or \code{\link{ds}}.
-#   If \code{ddf.obj} is \code{NULL} then strip transects are assumed.
+#' @param formula formula for the surface. This should be a valid \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}} formula. See "Details", below, for how to define the response.
+#' @param ddf.obj result from call to \code{\link{ddf}} or \code{\link[Distance]{ds}}. If \code{ddf.obj} is \code{NULL} then strip transects are assumed.
 #' @param segment.data segment data, see \code{\link{dsm-data}}.
 #' @param observation.data observation data, see \code{\link{dsm-data}}.
-#' @param engine which model should be used for the DSM (\code{\link{glm}}/
-#'   \code{\link{gam}}/code{\link{gamm}}).
-#' @param convert.units value to alter length to width for calculation
-#'   of the offset.
+#' @param engine which model should be used for the DSM (\code{\link{glm}}/\code{\link{gam}}/code{\link{gamm}}).
+#' @param convert.units value to alter length or width for calculation of the offset, applied to `segment.area` if used.
 #' @param family response distribution (popular choices include \code{\link{quasipoisson}}, \code{\link{Tweedie}} and \code{\link{negbin}}. Defaults to \code{quasipossion}.
-#' @param \dots anything else to be passed straight to \code{\link{gam}}.
 #' @param group should group abundance/density be modelled rather than individual abundance/density? This effectively sets the \code{size} column in \code{observation.data} to be 1.
 #' @param control the usual \code{control} argument for a \code{gam}, \code{keepData} must be \code{TRUE} or variance estimation will not work.
 #' @param availability an availability bias used to scale the counts/estimated  counts by. If we have \code{N} animals in a segment, then \code{N/availability} will be entered into the model. Uncertainty in the availability is not handled at present.
 #' @param gamma parameter to \code{gam()} set to a value of 1.4 (from advice in Wood (2006)) such that the \code{gam()} is inclined to not 'overfit.'.
+#' @param strip.width if \code{ddf.obj}, above, is \code{NULL}, then this is where the strip width is specified. Note that this is the total width, i.e. right truncation minus left truncation.
+#' @param segment.area if `NULL` (default) segment areas will be calculated by multiplying the `Effort` column in `segment.data` by the truncation distance for the `ddf.obj` or by `strip.width`. Alternatively a vector of segment areas can be provided (which must be the same length as there are rows in `segment.data` or a character string giving the name of a column in `segment.data` which contains the areas.
+#' @param \dots anything else to be passed straight to \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}}.
 #' @return a \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}} object, with an additional element, \code{ddf} which holds the detection function object.
 #' @author David L. Miller
 # @seealso
 #' @references Hedley, S. and S. T. Buckland. 2004. Spatial models for line transect sampling. JABES 9:181-199.
+#'
+#' Miller, DL, ML Burt, EA Rexstad and L Thomas (2013). Spatial models for distance sampling data: recent developments and future directions. Methods in Ecology and Evolution. (http://dill.github.io/papers/dsm-paper.pdf)
 #'
 #' Wood, S.N. 2006. Generalized Additive Models: An Introduction with R. CRC/Chapman & Hall.
 #' @export
@@ -45,7 +45,8 @@
 #' data(mexdolphins)
 #'
 #' # fit a detection function and look at the summary
-#' hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance), key = "hr", adjustment = NULL)
+#' hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance), 
+#'                key = "hr", adjustment = NULL)
 #' summary(hr.model)
 #'
 #' # fit a simple smooth of x and y
@@ -67,12 +68,15 @@
 dsm <- function(formula, ddf.obj, segment.data, observation.data,
                 engine="gam", convert.units=1,
                 family=quasipoisson(link="log"), group=FALSE, gamma=1.4,
-                control=list(keepData=TRUE), availability=1,...){
+                control=list(keepData=TRUE), availability=1, strip.width=NULL,
+                segment.area=NULL,...){
 
   # if we have a model fitted using Distance, then just pull out the
   # ddf component
-  if(all(class(ddf.obj)=="dsmodel")){
-    ddf.obj <- ddf.obj$ddf
+  if(!is.null(ddf.obj)){
+    if(all(class(ddf.obj)=="dsmodel")){
+      ddf.obj <- ddf.obj$ddf
+    }
   }
 
   ## check the formula
@@ -92,33 +96,61 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
                                 "+ offset(off.set)"),collapse=""))
   }
 
+  ## check that the necessary columns exist in the data
+  # NB this doesn't return anything just throws an error if something
+  #    bad happens
+  check.cols(ddf.obj, segment.data, observation.data, strip.width,segment.area)
+
   ## build the data
   dat <- make.data(response, ddf.obj, segment.data, observation.data,
-                   group, convert.units, availability)
+                   group, convert.units, availability, strip.width,
+                   segment.area)
 
   ## run the engine
   if(engine == "gam"){
     fit <- withCallingHandlers(gam(formula,family=family, data=dat, gamma=gamma,
                control=control, ...), warning = matrixnotposdef.handler)
-    fit$gamma <- gamma
   }else if(engine == "gamm"){
+    # warn if using an old version of mgcv
+    mgcv.version <- as.numeric(strsplit(as.character(packageVersion("mgcv")),
+                                        "\\.")[[1]])
+    if(mgcv.version[1]<1 | (mgcv.version[2]<7 |
+                            (mgcv.version[2]==7 & mgcv.version[3]<24))){
+      message("You are using mgcv version < 1.7-24, please update to at least 1.7-24 to avoid fitting problems.")
+    }
+
     # unsupported
     control$keepData <- NULL
     fit <- withCallingHandlers(gamm(formula,family=family, data=dat,
                                     gamma=gamma,control=control, ...),
                                warning = matrixnotposdef.handler)
-    fit$gamma <- gamma
   }else if(engine == "glm"){
     fit <- glm(formula,family=family, data=dat, ...)
   }else{
     stop("engine must be one of 'gam', 'gamm' or 'glm'")
   }
 
+  ## save knots
+  if("knots" %in% names(match.call())){
+    fit$knots <- get(as.character(match.call()$knots))
+  }
+
   ## add the detection function object into the gam/gamm/glm object
   if(engine == "gamm"){
     fit$gam$ddf <- ddf.obj
+    fit$gam$data <- dat
+    fit$gam$gamma <- gamma
+    # yucky way to get dsm.var/dsm.var.prop to work because gamm()
+    #  doesn't store the call()
+    fit$gam$gamm.call.list <- substitute(list(...))
+    fit$gam$gamm.call.list$formula <- formula
+    fit$gam$gamm.call.list$family <- family
+    fit$gam$gamm.call.list$data <- dat
+    fit$gam$gamm.call.list$gamma <- gamma
+    fit$gam$gamm.call.list$control <- control
   }else{
     fit$ddf <- ddf.obj
+    fit$gamma <- gamma
   }
 
   class(fit) <- c("dsm",class(fit))

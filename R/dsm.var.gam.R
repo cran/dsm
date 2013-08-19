@@ -40,6 +40,12 @@ dsm.var.gam<-function(dsm.obj, pred.data,off.set=NULL,
   # strip dsm class so we can use gam methods
   class(dsm.obj) <- class(dsm.obj)[class(dsm.obj)!="dsm"]
 
+  # if we have a gamm, then just pull out the gam object
+  if(any(class(dsm.obj)=="gamm")){
+    dsm.obj <- dsm.obj$gam
+    is.gamm <- TRUE
+  }
+
   pred.data.save<-pred.data
   off.set.save<-off.set
 
@@ -69,6 +75,7 @@ dsm.var.gam<-function(dsm.obj, pred.data,off.set=NULL,
 
   # grab the coefficients
   cft <- coef(fit.with.pen)
+  preddo <- list(length(pred.data))
   dpred.db <- matrix(0, length(pred.data), length(cft))
 
   # loop over the prediction grids
@@ -87,6 +94,7 @@ dsm.var.gam<-function(dsm.obj, pred.data,off.set=NULL,
       this.off.set <- off.set[[ipg]]
     }
 
+    preddo[[ipg]] <-  this.off.set %**% tmfn(lppred)
     dpred.db[ipg,] <- this.off.set %**% (dtmfn(lppred)*lpmat)
   }
 
@@ -97,6 +105,8 @@ dsm.var.gam<-function(dsm.obj, pred.data,off.set=NULL,
 
   result <- list(pred.var = vpred,
                  bootstrap = FALSE,
+                 pred=preddo,
+                 var.prop = FALSE,
                  pred.data = pred.data.save,
                  off.set = off.set.save,
                  model = fit.with.pen,

@@ -7,16 +7,19 @@ or density.}
     engine = "gam", convert.units = 1,
     family = quasipoisson(link = "log"), group = FALSE,
     gamma = 1.4, control = list(keepData = TRUE),
-    availability = 1, ...)
+    availability = 1, strip.width = NULL,
+    segment.area = NULL, ...)
 }
 \arguments{
   \item{formula}{formula for the surface. This should be a
   valid
   \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}}
-  formula.}
+  formula. See "Details", below, for how to define the
+  response.}
 
   \item{ddf.obj}{result from call to \code{\link{ddf}} or
-  \code{\link{ds}}.}
+  \code{\link[Distance]{ds}}. If \code{ddf.obj} is
+  \code{NULL} then strip transects are assumed.}
 
   \item{segment.data}{segment data, see
   \code{\link{dsm-data}}.}
@@ -25,19 +28,16 @@ or density.}
   \code{\link{dsm-data}}.}
 
   \item{engine}{which model should be used for the DSM
-  (\code{\link{glm}}/
-  \code{\link{gam}}/code{\link{gamm}}).}
+  (\code{\link{glm}}/\code{\link{gam}}/code{\link{gamm}}).}
 
-  \item{convert.units}{value to alter length to width for
-  calculation of the offset.}
+  \item{convert.units}{value to alter length or width for
+  calculation of the offset, applied to `segment.area` if
+  used.}
 
   \item{family}{response distribution (popular choices
   include \code{\link{quasipoisson}}, \code{\link{Tweedie}}
   and \code{\link{negbin}}. Defaults to
   \code{quasipossion}.}
-
-  \item{\dots}{anything else to be passed straight to
-  \code{\link{gam}}.}
 
   \item{group}{should group abundance/density be modelled
   rather than individual abundance/density? This
@@ -57,6 +57,23 @@ or density.}
   \item{gamma}{parameter to \code{gam()} set to a value of
   1.4 (from advice in Wood (2006)) such that the
   \code{gam()} is inclined to not 'overfit.'.}
+
+  \item{strip.width}{if \code{ddf.obj}, above, is
+  \code{NULL}, then this is where the strip width is
+  specified. Note that this is the total width, i.e. right
+  truncation minus left truncation.}
+
+  \item{segment.area}{if `NULL` (default) segment areas
+  will be calculated by multiplying the `Effort` column in
+  `segment.data` by the truncation distance for the
+  `ddf.obj` or by `strip.width`. Alternatively a vector of
+  segment areas can be provided (which must be the same
+  length as there are rows in `segment.data` or a character
+  string giving the name of a column in `segment.data`
+  which contains the areas.}
+
+  \item{\dots}{anything else to be passed straight to
+  \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}}.}
 }
 \value{
   a \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}}
@@ -87,7 +104,8 @@ library(dsm)
 data(mexdolphins)
 
 # fit a detection function and look at the summary
-hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance), key = "hr", adjustment = NULL)
+hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance),
+               key = "hr", adjustment = NULL)
 summary(hr.model)
 
 # fit a simple smooth of x and y
@@ -113,6 +131,12 @@ plot(mod1)
 \references{
   Hedley, S. and S. T. Buckland. 2004. Spatial models for
   line transect sampling. JABES 9:181-199.
+
+  Miller, DL, ML Burt, EA Rexstad and L Thomas (2013).
+  Spatial models for distance sampling data: recent
+  developments and future directions. Methods in Ecology
+  and Evolution.
+  (http://dill.github.io/papers/dsm-paper.pdf)
 
   Wood, S.N. 2006. Generalized Additive Models: An
   Introduction with R. CRC/Chapman & Hall.

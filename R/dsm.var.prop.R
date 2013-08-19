@@ -48,6 +48,7 @@
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #'  library(Distance)
 #'  library(dsm)
 #'
@@ -55,7 +56,8 @@
 #'  data(mexdolphins)
 #'
 #'  # fit a detection function and look at the summary
-#'  hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance), key = "hr", adjustment = NULL)
+#'  hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance),
+#'                 key = "hr", adjustment = NULL)
 #'  summary(hr.model)
 #'
 #'  # fit a simple smooth of x and y
@@ -74,12 +76,21 @@
 #'  mod1.var.map <- dsm.var.prop(mod1,
 #'                  split(mexdolphins$pred,1:nrow(mexdolphins$pred)), off.set)
 #'  plot(mod1.var.map)
+#' }
 #'
 dsm.var.prop<-function(dsm.obj, pred.data,off.set,
     seglen.varname='Effort', type.pred="response") {
 
+  is.gamm <- FALSE
+  # if we have a gamm, then just pull out the gam object
+  if(any(class(dsm.obj)=="gamm")){
+    dsm.obj <- dsm.obj$gam
+    is.gamm <- TRUE
+  }
+
   # strip dsm class so we can use gam methods
   class(dsm.obj) <- class(dsm.obj)[class(dsm.obj)!="dsm"]
+
 
   pred.data.save<-pred.data
   off.set.save<-off.set
@@ -129,8 +140,7 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
     return(ret)
   }
 
-  # pull out the data and the call
-  callo <- dsm.obj$call
+  # pull out the data
   fo2data <- dsm.obj$data
 
   # find the derivatives
@@ -149,19 +159,74 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
   while( dmat.name %in% names.to.avoid){
     dmat.name <- paste('.',dmat.name,sep="")
   }
-  fo2data[[ dmat.name]] <- firstD
-  formo[[3]] <- call( '+', formo[[3]], as.symbol(dmat.name))
-  # put it all together
-  paraterm<-list(list(ddf.obj$hess))
-  names(paraterm) <- dmat.name
+
+
+  if(!is.gamm){
+    # pull out the call
+    formo[[3]] <- call( '+', formo[[3]], as.symbol(dmat.name))
+
+    # put together the paraPen terms
+    paraterm<-list(list(ddf.obj$hess))
+    names(paraterm) <- dmat.name
+    callo <- dsm.obj$call
+    callo$paraPen <- c(callo$paraPen, paraterm)
+
+    # insert the extra data into the frame
+    fo2data[[ dmat.name]] <- firstD
+  }else{
+    # pull out the call
+    callo <- eval(dsm.obj$gamm.call.list)
+
+    # get the formula and make it a string
+    formo <- paste(formo[[2]],formo[[1]],as.character(formo)[[3]],collapse="")
+
+    # need to reparametrise
+    S <- as.matrix(ddf.obj$hess)
+    S.e <- eigen(S)
+    if(is.matrix(firstD)){
+      sqrt.D <- diag(sqrt(S.e$values))
+      firstD <- firstD%*%sqrt.D
+
+      rand.list <- list()
+
+      # add the extra random effect term to the formula
+      for(i in 1:ncol(firstD)){
+        this.dmat.name <- paste0(dmat.name,i)
+#        formo <- paste(formo," + s(",this.dmat.name,",bs=\"re\")",collapse="")
+rand.list[[this.dmat.name]]<-pdMat(form=~1)
+        fo2data[[ this.dmat.name]] <- firstD[,i]
+      }
+callo$random <- rand.list
+    }else{
+      sqrt.D <- sqrt(S.e$values)
+      firstD <- firstD*sqrt.D
+
+      # add the extra random effect term to the formula
+#      formo <- paste(formo," + s(",dmat.name,",bs=\"re\")",collapse="")
+rand.list <- list()
+rand.list[[dmat.name]]<-pdMat(form=~1)
+      fo2data[[ dmat.name]] <- firstD
+callo$random <- rand.list
+    }
+
+    # make the formula a formula
+    formo <- as.formula(formo)
+  }
+
+  # put the right objects into the call object
   callo$formula <- formo
   callo$family <- dsm.obj$family
-  callo$paraPen <- c(callo$paraPen, paraterm)
   callo$data <- fo2data
+  callo$knots <- dsm.obj$knots
 
-  # run the model
-  fit.with.pen <- with(dsm.obj,withCallingHandlers(eval(callo),
-                                       warning=matrixnotposdef.handler))
+  ## run the model
+  if(!is.gamm){
+    fit.with.pen <- with(dsm.obj,withCallingHandlers(eval(callo),
+                                         warning=matrixnotposdef.handler))
+  }else{
+    fit.with.pen <- do.call("gamm",callo)
+    fit.with.pen <- fit.with.pen$gam
+  }
   # strip dsm class so we can use gam methods
   class(fit.with.pen) <- class(fit.with.pen)[class(fit.with.pen)!="dsm"]
 
@@ -186,9 +251,18 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
   for(ipg in seq_along(pred.data)){
     # if we have a single paramter model (e.g. half-normal) need to be careful
     if(is.matrix(firstD)){
-      pred.data[[ipg]][[dmat.name]] <- matrix(0,
-                                              nrow(pred.data[[ipg]]),
-                                              ncol(firstD))
+      if(!is.gamm){
+        pred.data[[ipg]][[dmat.name]] <- matrix(0,
+                                                nrow(pred.data[[ipg]]),
+                                                ncol(firstD))
+      }else{
+        for(i in 1:ncol(firstD)){
+          this.dmat.name <- paste0(dmat.name,i)
+          pred.data[[ipg]][[this.dmat.name]] <- matrix(0,
+                                                       nrow(pred.data[[ipg]]),
+                                                       ncol(firstD))
+        }
+      }
     }else{
       pred.data[[ipg]][[dmat.name]] <- rep(0, nrow(pred.data[[ipg]]))
     }
@@ -200,7 +274,7 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
     lpmat <- predict(fit.with.pen, newdata=pred.data[[ ipg]], type='lpmatrix')
     lppred <- lpmat %**% cft
 
-    # if the offset is just one number then repeat it enough times 
+    # if the offset is just one number then repeat it enough times
     if(length(off.set[[ipg]])==1){
       this.off.set <- rep(off.set[[ipg]],nrow(pred.data[[ipg]]))
     }else{
@@ -226,6 +300,7 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
 
   result <- list(pred.var = vpred,
                  bootstrap = FALSE,
+                 var.prop = TRUE,
                  pred.data = pred.data.save,
                  pred = preddo,
                  off.set = off.set,

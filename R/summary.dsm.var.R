@@ -151,8 +151,13 @@ summary.dsm.var<-function(object, alpha=0.05, boxplot.coef=1.5,
       object$pred.data <- pd
       object$off.set <- as.vector(off)
 
-      var.prop <- dsm.var.prop(object$dsm.obj, object$pred.data, object$off.set,
-                               object$seglen.varname, object$type.pred)
+      if(object$var.prop){
+        var.prop <- dsm.var.prop(object$dsm.obj,object$pred.data,object$off.set,
+                                 object$seglen.varname, object$type.pred)
+      }else{
+        var.prop <- dsm.var.gam(object$dsm.obj,object$pred.data,object$off.set,
+                                 object$seglen.varname, object$type.pred)
+      }
 
       sinfo$se <- sqrt(var.prop$pred.var)
     }
@@ -168,8 +173,9 @@ summary.dsm.var<-function(object, alpha=0.05, boxplot.coef=1.5,
       sinfo$pred.est <- object$pred[[1]]
     }
 
-    # if we're using variance propagation, the CV is fine
-    if(sinfo$varprop){
+    # if we're using variance propagation or there is no detection
+    # function, then the CV is fine
+    if(sinfo$varprop | is.null(object$dsm.object$ddf)){
       # calculate the CV
       sinfo$cv <- sinfo$se/sinfo$pred.est
     }else{

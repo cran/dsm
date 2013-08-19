@@ -61,14 +61,16 @@
   and Sharon Hedley.
 }
 \examples{
-library(Distance)
+\dontrun{
+ library(Distance)
  library(dsm)
 
  # load the Gulf of Mexico dolphin data (see ?mexdolphins)
  data(mexdolphins)
 
  # fit a detection function and look at the summary
- hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance), key = "hr", adjustment = NULL)
+ hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance),
+                key = "hr", adjustment = NULL)
  summary(hr.model)
 
  # fit a simple smooth of x and y
@@ -87,6 +89,7 @@ library(Distance)
  mod1.var.map <- dsm.var.prop(mod1,
                  split(mexdolphins$pred,1:nrow(mexdolphins$pred)), off.set)
  plot(mod1.var.map)
+}
 }
 \author{
   Mark V. Bravington, Sharon L. Hedley. Bugs added by David
