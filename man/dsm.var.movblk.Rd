@@ -2,10 +2,9 @@
 \alias{dsm.var.movblk}
 \title{Variance estimation via parametric moving block bootstrap}
 \usage{
-  dsm.var.movblk(dsm.object, pred.data, n.boot, block.size,
-    off.set, ds.uncertainty = FALSE,
-    samp.unit.name = "Transect.Label",
-    progress.file = NULL, bs.file = NULL, bar = TRUE)
+dsm.var.movblk(dsm.object, pred.data, n.boot, block.size, off.set,
+  ds.uncertainty = FALSE, samp.unit.name = "Transect.Label",
+  progress.file = NULL, bs.file = NULL, bar = TRUE)
 }
 \arguments{
   \item{dsm.object}{object returned from
@@ -22,7 +21,7 @@
   \item{block.size}{number of segments in each block.}
 
   \item{off.set}{offset to be used in the model, see
-  \code{\link{offsets}}.  Note that this should NOT be
+  \code{\link{offsets}} Note that this should NOT be
   \code{log()}'d.}
 
   \item{ds.uncertainty}{incorporate uncertainty in the
@@ -45,10 +44,9 @@
   (Default \code{TRUE}).}
 }
 \description{
-  Estimate the variance in abundance over an area using a
-  moving block bootstrap. Two procedures are implemented,
-  one incorporating detection function uncertainty, one
-  not.
+Estimate the variance in abundance over an area using a
+moving block bootstrap. Two procedures are implemented, one
+incorporating detection function uncertainty, one not.
 }
 \section{Details}{
   Setting \code{ds.uncertainty=TRUE} will incorporate

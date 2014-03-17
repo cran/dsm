@@ -3,9 +3,6 @@
 #' Use results from the Bayesian interpretation of the GAM to obtain
 #' uncertainty estimates. See Wood (2006).
 #'
-#' NB. We include uncertainty in the detection function using the delta method
-#'   so INDEPENDENCE is still assumed between the two variance components
-#'
 #' This is based on \code{\link{dsm.var.prop}} by Mark Bravington and Sharon 
 #'  Hedley.
 #'
@@ -87,7 +84,7 @@ dsm.var.gam<-function(dsm.obj, pred.data,off.set=NULL,
     lpmat <- predict(fit.with.pen, newdata=pred.data[[ ipg]], type='lpmatrix')
     lppred <- lpmat %**% cft
 
-    # if the offset is just one number then repeat it enough times 
+    # if the offset is just one number then repeat it enough times
     if(length(off.set[[ipg]])==1){
       this.off.set <- rep(off.set[[ipg]],nrow(pred.data[[ipg]]))
     }else{
