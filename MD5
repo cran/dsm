@@ -1,6 +1,6 @@
-ad5600d28af87c0b8c10dc57a5948a9e *DESCRIPTION
+d9140d9f6453c18ba928fb25853d3aa1 *DESCRIPTION
 e159f0b62083a0024b35c621d8463174 *NAMESPACE
-4699c98d0a11b7b9b48446058b1f0fc7 *NEWS
+bed1f3ff8e823ecc4a744dbe9b3c2f48 *NEWS
 2ec38ec32da994372317c4370a0f5b0a *R/block.info.per.su.R
 019f2b668202d5f04275310211587051 *R/check.cols.R
 4535576ca123c2bd9dcaecbbee97b810 *R/ddf.model.description.R
@@ -9,15 +9,15 @@ a66d062e845cdaf4728322fd36d959b2 *R/dsm.R
 adf5315e6c5e275f8540d9034b4d4371 *R/dsm.cor.R
 71883ef50972337322b53ae4811eee54 *R/dsm.var.gam.R
 3fecfea7b9b4c66a4bd15027e6e17221 *R/dsm.var.movblk.R
-c4eb25d115e173cbb04d98889b1c308d *R/dsm.var.prop.R
+461ac685970a3b8abc7734079519efe5 *R/dsm.var.prop.R
 62f7bb154d672821b4894d8400e4f4ac *R/generate.ds.uncertainty.R
 9f156ea354c5a9350c21e46d24da443a *R/generate.mb.sample.R
 15b3ec8ae20b4d05092475cd9d11f216 *R/latlong2km.R
-ff878d0efe6feed2e7b41b6684bf3b36 *R/make.data.R
+8dfe1060bccffb2fdfec6a8ab493812c *R/make.data.R
 aea4ac6bbcb25cc1eab1876d33f4d202 *R/make.soapgrid.R
 5fe9f49658d325979ff5a11be5be4896 *R/matrixnotposdef.handler.R
 b061a46df9e15040d796133ed2402cda *R/plot.dsm.R
-7d743c262cc89acd636a2a4bc6ffa60f *R/plot.dsm.var.R
+dfcee3f1432d355da0e38e0654f16013 *R/plot.dsm.var.R
 593e3c0ad6971f77bae8cce0a508ab22 *R/predict.dsm.R
 64cc1ab4f93b55fb22be90e6a9259961 *R/print.dsm.R
 702ecfeb779727358671e4a6b129df11 *R/print.dsm.var.R
@@ -37,7 +37,7 @@ e6cd54131f3e2e22a2693c3e39148026 *man/dsm.Rd
 ec975f2f12cc7c2d4dbacda0bc8913c1 *man/dsm.cor.Rd
 b9adbeb1a95c2c80b4dfcbe3da0baded *man/dsm.var.gam.Rd
 cc0fd24862a16ad4e90b555154d4bdd8 *man/dsm.var.movblk.Rd
-2a23885754bdb08a282f99c0faf17642 *man/dsm.var.prop.Rd
+b81a37622ca8e7a69320c138696b354b *man/dsm.var.prop.Rd
 3177d0c7acbe34662728df1fc1c46f25 *man/generate.ds.uncertainty.Rd
 66417f5ed7b3a9d2cbb591a14efecd4d *man/generate.mb.sample.Rd
 bc4a736f5bd379760ad988b0d4e6f3a5 *man/latlong2km.Rd
@@ -56,6 +56,6 @@ d666232215e349ee7bf2000b4ca42d32 *man/print.summary.dsm.var.Rd
 021d9390cb5a80347fc61cf816761a77 *man/summary.dsm.var.Rd
 c09dc41551527c183feedfa412823d4f *man/trim.var.Rd
 5ddaacb6f953107d67c3e5dcfbd7164f *tests/testthat.R
-4629f65f79fdab3a9e2c98ab816bfed9 *tests/testthat/test_input.R
-0891be7a61c4b8e3d923bd1ca2fe5b26 *tests/testthat/test_mex.R
-db3b18f5ada23e755007c3d8076fbd21 *tests/testthat/test_movblk.R
+bbf95b50460eb0e542b928b99d6bc4a7 *tests/testthat/test_input.R
+077cf5dbb585195db5407806b12fbec9 *tests/testthat/test_mex.R
+7a2b516294085363e41662b74ecb54e2 *tests/testthat/test_movblk.R
