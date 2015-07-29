@@ -16,39 +16,24 @@
 #'
 #' Based on (much more general) code from Mark Bravington and Sharon Hedley.
 #'
-#' @param dsm.obj an object returned from running \code{\link{dsm}}.
-#' @param pred.data either: a single prediction grid or list of prediction 
-#'        grids. Each grid should be a \code{data.frame} with the same 
-#'        columns as the original data.
-#' @param off.set a a vector or list of vectors with as many elements as there 
-#'        are in \code{pred.data}. Each vector is as long as the number of
-#'        rows in the corresponding element of \code{pred.data}. These give
-#'        the area associated with each prediction point. 
-#' @param seglen.varname name for the column which holds the segment length 
-#'        (default value "Effort"). 
-#' @param type.pred should the predictions be on the "response" or "link" scale?
-#'        (default "response").
+#' @inheritParams dsm.var.gam
 #' @return a list with elements
 #'         \tabular{ll}{\code{model} \tab the fitted model object\cr
-#'                      \code{pred.var} \tab covariances of the regions given
-#'                      in \code{pred.data}. Diagonal elements are the 
-#'                      variances in order\cr
+#'                      \code{pred.var} \tab variance of each region given
+#'                      in \code{pred.data}.\cr
 #'                      \code{bootstrap} \tab logical, always \code{FALSE}\cr
 #'                      \code{pred.data} \tab as above\cr
 #'                      \code{off.set} \tab as above\cr
 #'                      \code{model}\tab the fitted model with the extra term\cr
 #'                      \code{dsm.object} \tab the original model, as above\cr
-#'                      \code{model.check} \tab simple check of subtracting the
-#'                        coefficients of the two models to see if there is a
-#'                        large difference\cr
-#'                      \code{deriv} \tab numerically calculated Hessian of the
-#'                        offset\cr.
+#'                      \code{model.check} \tab simple check of subtracting the coefficients of the two models to see if there is a large difference\cr
+#'                      \code{deriv} \tab numerically calculated Hessian of the offset\cr
 #'                      }
 #' @author Mark V. Bravington, Sharon L. Hedley. Bugs added by David L. Miller.
 #' @references
 #' Williams, R., Hedley, S.L., Branch, T.A., Bravington, M.V., Zerbini, A.N. and Findlay, K.P. (2011). Chilean Blue Whales as a Case Study to Illustrate Methods to Estimate Abundance and Evaluate Conservation Status of Rare Species. Conservation Biology 25(3), 526-535.
 #' @export
-#'
+#' @importFrom stats as.formula
 #' @examples
 #' \dontrun{
 #'  library(Distance)
@@ -93,14 +78,10 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
   # strip dsm class so we can use gam methods
   class(dsm.obj) <- class(dsm.obj)[class(dsm.obj)!="dsm"]
 
-
-  pred.data.save<-pred.data
-  off.set.save<-off.set
-
   # if all the offsets are the same then we can jsut supply 1 and rep it
   if(length(off.set)==1){
     if(is.null(nrow(pred.data))){
-      off.set <- as.list(rep(off.set,length(pred.data)))
+      off.set <- rep(list(off.set),length(pred.data))
     }else{
       off.set <- rep(off.set,nrow(pred.data))
     }
@@ -111,8 +92,6 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
   if(is.data.frame(pred.data) & is.vector(off.set)){
     pred.data <- list(pred.data)
     off.set <- list(off.set)
-#    pred.data[[1]] <- pred.data
-#    off.set[[1]] <- off.set
   }else if(is.list(off.set)){
     if(length(pred.data)!=length(off.set)){
       stop("pred.data and off.set don't have the same number of elements")
@@ -249,7 +228,7 @@ callo$random <- rand.list
   # depending on whether we have response or link scale predictions...
   if(type.pred=="response"){
     tmfn <- dsm.obj$family$linkinv
-    dtmfn <- function(eta){sapply(eta, numderiv, f=tmfn)}
+    dtmfn <- function(eta){vapply(eta, numderiv, numeric(1), f=tmfn)}
   }else if(type.pred=="link"){
     tmfn <- identity
     dtmfn <- function(eta){1}
@@ -306,10 +285,14 @@ callo$random <- rand.list
   # A B A^tr
   vpred <- dpred.db %**% tcrossprod(vcov(fit.with.pen), dpred.db)
 
+  if(is.matrix(vpred)){
+    vpred <- diag(vpred)
+  }
+
   result <- list(pred.var = vpred,
                  bootstrap = FALSE,
                  var.prop = TRUE,
-                 pred.data = pred.data.save,
+                 pred.data = pred.data,
                  pred = preddo,
                  off.set = off.set,
                  model = fit.with.pen,

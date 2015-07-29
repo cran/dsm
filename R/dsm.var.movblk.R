@@ -4,15 +4,10 @@
 #' bootstrap. Two procedures are implemented, one incorporating detection
 #' function uncertainty, one not.
 #'
+#' @inheritParams dsm.var.gam
 #' @param dsm.object object returned from \code{\link{dsm}}.
-#' @param pred.data a \code{data.frame} that holds prediction points, must have
-#'        the correct columns for other environmental covariates. It also MUST
-#'        have a column called \code{cell.area} which gives the area for each
-#'        prediction cell
 #' @param n.boot number of bootstrap resamples.
 #' @param block.size number of segments in each block.
-#' @param off.set offset to be used in the model, see \code{\link{offsets}}
-#'        Note that this should NOT be \code{log()}'d.
 #' @param ds.uncertainty incorporate uncertainty in the detection function? See
 #'        Details, below. Note that this feature is EXPERIMENTAL at the moment.
 #' @param samp.unit.name name sampling unit to resample (default
@@ -38,6 +33,7 @@
 #'  and the spatial model are INDEPENDENT. This is probably not reasonable.
 #'
 #' @export
+#' @importFrom utils write.table setTxtProgressBar txtProgressBar
 #' @examples
 #' \dontrun{
 #' library(Distance)
@@ -79,9 +75,14 @@ dsm.var.movblk <- function(dsm.object, pred.data, n.boot, block.size,
                            samp.unit.name='Transect.Label',
                            progress.file=NULL, bs.file=NULL,bar=TRUE){
 
+  # check the user didn't ask for DS uncertainty and didn't supply
+  # a detection function
+  if(ds.uncertainty & is.null(dsm.object$ddf)){
+    stop("Cannot incorporate detection function uncertainty with no detection function!")
+  }
   # check the user didn't ask for individual level covars and detection
   # function uncertainty
-  if(ds.uncertainty &
+  if(ds.uncertainty & !is.null(dsm.object$ddf) &&
      dsm.object$ddf$ds$aux$ddfobj$scale$formula != "~1"){
     stop("Cannot incorporate detection function uncertainty with covariates in the detection function")
   }

@@ -3,8 +3,6 @@
 #' Note that the prediction data set must have \code{x} and \code{y} columns
 #' even if these were not used in the model.
 #'
-#' @S3method plot dsm.var
-#' @method plot dsm.var
 #' @aliases plot.dsm.var
 #'
 #' @param x a \code{dsm.var} object
@@ -26,6 +24,9 @@
 #' @param gg.grad optional \code{\link{ggplot}} gradient object.
 #' @param \dots any other arguments
 #' @return a plot
+#' @export
+#' @importFrom utils read.csv
+#' @importFrom stats sd quantile
 #'
 #' @section Details:
 #'
@@ -63,9 +64,7 @@ plot.dsm.var<-function(x, poly=NULL, limits=NULL, breaks=NULL,
   # if we used GAM intervals (via dsm.var.prop or dsm.var.gam)
   if(!object$bootstrap){
     cnames <- names(object$pred.data[[1]])
-    object$pred.data <- data.frame(matrix(unlist(object$pred.data),
-                                          nrow=length(object$pred.data),
-                                          byrow=T))
+    object$pred.data <- do.call(rbind.data.frame, object$pred.data)
     names(object$pred.data) <- cnames
   }
 
@@ -139,13 +138,13 @@ plot.dsm.var<-function(x, poly=NULL, limits=NULL, breaks=NULL,
       cell.cv <- sqrt(cvp.sq+cell.cv.sq)
     }
 
-  }else if(object$bootstrap==FALSE){
+  }else if(!object$bootstrap){
     # varprop stuff
     # pull out the standard errors
-    if(is.null(dim(object$pred.var))){
-      cell.se <- sqrt(object$pred.var)
-    }else{
+    if(is.matrix(object$pred.var)){
       cell.se <- sqrt(diag(object$pred.var))
+    }else{
+      cell.se <- sqrt(object$pred.var)
     }
 
     cell.cv <- cell.se/mod.pred
@@ -213,8 +212,10 @@ plot.dsm.var<-function(x, poly=NULL, limits=NULL, breaks=NULL,
     object$dsm.object$data$y <- object$dsm.object$data[[y.name]]
 
     # plot the transect lines
-    p <- p + geom_line(aes_string(x="x", y="y",group="Transect.Label"),
-                        data=object$dsm.object$data)
+    if("Transect.Label" %in% names(object$dsm.object$data)){
+      p <- p + geom_line(aes_string(x="x", y="y",group="Transect.Label"),
+                         data=object$dsm.object$data)
+    }
 
     # if there is a dection function associated with the current analysis
     if(!is.null(object$dsm.object$ddf)){

@@ -5,17 +5,20 @@
 #' these need to be done using \code{\link{gam.check}}.
 #'
 #' @param gam.obj a \code{gam}, \code{glm} or \code{dsm} object.
-#' @param ... arguments passed on to all plotting function
+#' @param ... arguments passed on to all plotting functions
 #' @return just plots!
 #'
 #' @author Based on code provided by Natalie Kelly, bugs added by Dave Miller
 #' @export
-#' @import statmod
+#' @importFrom statmod qres.nbinom qresid qres.tweedie
+#' @importFrom graphics par hist
+#' @importFrom stats napredict fitted qqnorm
 #'
 #' @examples
-#'
+#' \donttest{
 #' library(Distance)
 #' library(dsm)
+#' library(tweedie)
 #'
 #' # load the Gulf of Mexico dolphin data (see ?mexdolphins)
 #' data(mexdolphins)
@@ -24,22 +27,41 @@
 #' hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance),
 #'                key = "hr", adjustment = NULL)
 #'
-#' # fit a simple smooth of x and y
-#' mod1<-dsm(N~s(x,y), hr.model, mexdolphins$segdata, mexdolphins$obsdata)
+#' # fit a simple smooth of x and y with a Tweedie response with estimated
+#' #  p parameter
+#' mod1<-dsm(N~s(x,y), hr.model, mexdolphins$segdata, mexdolphins$obsdata, family=tw())
 #' rqgam.check(mod1)
+#' }
 rqgam.check<-function(gam.obj,...){
-
-  # for negbin need to set $theta
-  if(grepl("Negative Binomial",gam.obj$family$family)){
-    gam.obj$theta <- gam.obj$family$getTheta()
-  }
 
   # layout stuff
   opar <- par(mfrow=c(2,2))
 
   # grab the randomised quantile residuals
   # requires statmod package
-  qres <- qresid(gam.obj)
+
+  # need to do the right thing for mgcv's Tweedie
+  if(grepl("^Tweedie",gam.obj$family$family)){
+    if(is.null(environment(gam.obj$family$variance)$p)){
+      p.val <- gam.obj$family$getTheta(TRUE)
+      environment(gam.obj$family$variance)$p <- p.val
+    }
+    qres <- qres.tweedie(gam.obj)
+  # and for negbin
+  }else if(grepl("^Negative Binomial",gam.obj$family$family)){
+    # need to set $theta
+    if("extended.family" %in% class(gam.obj$family)){
+      # for SNW's extended family, need to set TRUE in getTheta as theta
+      # is on the wrong scale
+      gam.obj$theta <- gam.obj$family$getTheta(TRUE)
+    }else{
+      gam.obj$theta <- gam.obj$family$getTheta()
+    }
+    qres <- qres.nbinom(gam.obj)
+  }else{
+    # for everything else
+    qres <- qresid(gam.obj)
+  }
 
   # values of the linear predictor
   linpred <- napredict(gam.obj$na.action, gam.obj$linear.predictors)
@@ -52,7 +74,7 @@ rqgam.check<-function(gam.obj,...){
          xlab="linear predictor",ylab="Randomised quantile residuals",...)
 
   ## histogram
-  hist(qresid(gam.obj), main="Histogram of residuals",
+  hist(qres, main="Histogram of residuals",
        xlab="Randomised quantile residuals",...)
 
 

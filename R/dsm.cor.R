@@ -21,8 +21,10 @@
 #'
 #' If there are NA values in the residuals then the correlogram will not be calculated. This usually occurs due to NA values in the covariates (so the smoother will not have fitted values there). Code like `any(is.na(dsm.obj$data))` might be helpful.
 #'
+#' @importFrom graphics plot axis box legend lines abline segments
+#' @importFrom stats cor residuals
 #' @examples
-#'
+#' \donttest{
 #'  library(Distance)
 #'  library(dsm)
 #'
@@ -33,7 +35,7 @@
 #'  mod1<-dsm(N~s(x,y), hr.model, mexdolphins$segdata, mexdolphins$obsdata)
 #'
 #'  dsm.cor(mod1,resid.type="d",max.lag=9,Segment.Label="Sample.Label")
-#'
+#'}
 #' @author David L. Miller
 #' @export
 dsm.cor <- function(dsm.obj,Transect.Label="Transect.Label",

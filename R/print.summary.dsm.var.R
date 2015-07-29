@@ -2,12 +2,10 @@
 #'
 #' See \code{\link{summary.dsm.var}} for information.
 #'
-#' @S3method print summary.dsm.var
-#' @aliases print.summary.dsm.var
-#' @method print summary.dsm.var
 #' @param x a summary of \code{dsm} variance object
 #' @param \dots unspecified and unused arguments for S3 consistency
 #' @return NULL
+#' @export
 #' @author David L. Miller
 #' @seealso \code{\link{summary.dsm.var}}
 #' @keywords utility
@@ -65,12 +63,17 @@ print.summary.dsm.var<-function(x,...){
 
     cat("\n")
 
-    # delta method asymptotic CI
+    ## calculate the CI around the abundance estimate
     unconditional.cv.square <- x$cv^2
     asymp.ci.c.term <- exp(1.96*sqrt(log(1+unconditional.cv.square)))
     asymp.tot <- c(x$pred.est / asymp.ci.c.term,
                    x$pred.est,
                    x$pred.est * asymp.ci.c.term)
+
+#    invlink <- family(mo
+#    asymp.tot <- c(x$pred.est - cdf.val*se,
+#                   x$pred.est,
+#                   x$pred.est + cdf.val*se)
     names(asymp.tot) <- c("5%","Mean","95%")
 
     cat("Approximate asymptotic confidence interval:\n")
@@ -85,8 +88,8 @@ print.summary.dsm.var<-function(x,...){
   # print the individual CVs if we used the delta method
   if(x$bootstrap){
     if(!x$ds.uncertainty){
-      cat("CV of detection function       :",x$detfct.cv,"\n")
-      cat("CV from bootstrap              :",x$bootstrap.cv,"\n")
+      if(!is.null(x$detfct.cv)) cat("CV of detection function       :",x$detfct.cv,"\n")
+      cat("CV from bootstrap              :", round(x$bootstrap.cv,4),"\n")
       cat("Total coefficient of variation :", round(x$cv,4),"\n")
     }else{
       cat("Coefficient of variation       :", round(x$cv,4),"\n")
@@ -95,8 +98,8 @@ print.summary.dsm.var<-function(x,...){
     if(x$varprop){
       cat("Coefficient of variation       :", round(x$cv,4),"\n")
     }else{
-      cat("CV of detection function       :",x$detfct.cv,"\n")
-      cat("CV from GAM                    :",x$gam.cv,"\n")
+      if(!is.null(x$detfct.cv)) cat("CV of detection function       :",x$detfct.cv,"\n")
+      cat("CV from GAM                    :", round(x$gam.cv,4),"\n")
       cat("Total coefficient of variation :", round(x$cv,4),"\n")
     }
   }

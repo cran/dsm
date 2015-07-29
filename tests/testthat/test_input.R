@@ -16,21 +16,24 @@ test_that("formula specs",{
                  adjustment = NULL)
 
   ## models for count
-  count.gcv <- 42.98519
+  count.gcv <- 42.9169051
   count.N<-dsm(N~s(x,y), hn.model, mexdolphins$segdata, mexdolphins$obsdata)
   expect_that(count.N$gcv.ubre, equals(count.gcv,tolerance=par.tol))
+
   count.n<-dsm(n~s(x,y), hn.model, mexdolphins$segdata, mexdolphins$obsdata)
   expect_that(count.n$gcv.ubre, equals(count.gcv,tolerance=par.tol))
+
   count.count<-dsm(count~s(x,y), hn.model, mexdolphins$segdata,
                    mexdolphins$obsdata)
   expect_that(count.count$gcv.ubre, equals(count.gcv,tolerance=par.tol))
+
   count.abundance<-dsm(abundance~s(x,y), hn.model, mexdolphins$segdata,
                        mexdolphins$obsdata)
   expect_that(count.abundance$gcv.ubre, equals(count.gcv,tolerance=par.tol))
 
 
   ## models for abund.est
-  abund.est.gcv <- 57.40737
+  abund.est.gcv <- 57.3159048
   abund.est.Nhat<-dsm(Nhat~s(x,y), hn.model, mexdolphins$segdata,
                       mexdolphins$obsdata)
   expect_that(abund.est.Nhat$gcv.ubre, equals(abund.est.gcv,tolerance=par.tol))
@@ -72,3 +75,34 @@ test_that("formula specs",{
                            mexdolphins$obsdata))
 
 })
+
+test_that("Missing columns cause errors",{
+
+  data(mexdolphins)
+
+  seg <- mexdolphins$segdata
+  obs <- mexdolphins$obsdata
+
+  for(mcov in c("object","Sample.Label","size","distance")){
+    obs_missing <- mexdolphins$obsdata
+    obs_missing[[mcov]] <- NULL
+    expect_error(dsm(N~s(x,y), NULL, seg, obs_missing, segment.area = 8000^2),
+                 paste0("Column(s) \"",mcov,
+                        "\" not found in observation.data."),
+                 fixed=TRUE)
+  }
+
+  for(mcov in c("Effort","Sample.Label")){
+    seg_missing <- seg
+    seg_missing[[mcov]] <- NULL
+    expect_error(dsm(N~s(x,y), NULL, seg_missing, obs, segment.area = 8000^2),
+                 paste0("Column(s) \"",mcov,
+                        "\" not found in segment.data."),
+                 fixed=TRUE)
+  }
+
+
+})
+
+
+
