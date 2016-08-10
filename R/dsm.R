@@ -1,13 +1,7 @@
 #' Fit a density surface model to segment-specific estimates of abundance
 #' or density.
 #'
-#' Fits a density surface model (DSM) to detection adjusted counts from a
-#' spatially-referenced distance sampling analysis. \code{\link{dsm}} takes
-#' observations of animals, allocates them to segments of line (or strip
-#' transects) and optionally adjusts the counts based on detectability using a
-#' supplied detection function model. A generalized additive model, generalized
-#' mixed model or generalised is then used to model these adjusted counts based
-#' on a formula involving environmental covariates.
+#' Fits a density surface model (DSM) to detection adjusted counts from a spatially-referenced distance sampling analysis. \code{\link{dsm}} takes observations of animals, allocates them to segments of line (or strip transects) and optionally adjusts the counts based on detectability using a supplied detection function model. A generalized additive model, generalized mixed model or generalized linear model is then used to model these adjusted counts based on a formula involving environmental covariates.
 #'
 #' The response (LHS of `formula`) can be one of the following:
 #' \tabular{ll}{
@@ -44,7 +38,7 @@
 #' @param convert.units conversion factor to multiply the area of the segments by. See 'Units' below.
 #' @param family response distribution (popular choices include \code{\link{quasipoisson}}, \code{\link{Tweedie}} and \code{\link{negbin}}). Defaults to \code{quasipossion}.
 #' @param group if \code{TRUE} the abundance of groups will be calculated rather than the abundance of individuals. Setting this option to \code{TRUE} is equivalent to setting the size of each group to be 1.
-#' @param control the usual \code{control} argument for a \code{gam}; \code{keepData} must be \code{TRUE} for variance estimation to work.
+#' @param control the usual \code{control} argument for a \code{gam}; \code{keepData} must be \code{TRUE} for variance estimation to work (though this option cannot be set for GLMs or GAMMs.
 #' @param availability an availability bias used to scale the counts/estimated  counts by. If we have \code{N} animals in a segment, then \code{N/availability} will be entered into the model. Uncertainty in the availability is not handled at present.
 #' @param gamma parameter to \code{gam()} set to a value of 1.4 (from advice in Wood (2006)) such that the \code{gam()} is inclined to not 'overfit' when GCV is used to select the smoothing parameter (ignored for REML, see \code{link{gam}} for further details).
 #' @param strip.width if \code{ddf.obj}, above, is \code{NULL}, then this is where the strip width is specified (i.e. for a strip transect survey). This is sometimes (and more correctly) referred to as the half-width, i.e. right truncation minus left truncation.
@@ -69,28 +63,29 @@
 #'
 #' # load the Gulf of Mexico dolphin data (see ?mexdolphins)
 #' data(mexdolphins)
+#' attach(mexdolphins)
 #'
 #' # fit a detection function and look at the summary
-#' hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance),
+#' hr.model <- ds(distdata, max(distdata$distance),
 #'                key = "hr", adjustment = NULL)
 #' summary(hr.model)
 #'
 #' # fit a simple smooth of x and y
-#' mod1 <- dsm(N~s(x,y), hr.model, mexdolphins$segdata, mexdolphins$obsdata)
+#' mod1 <- dsm(N~s(x,y), hr.model, segdata, obsdata)
 #' summary(mod1)
 #'
-#' # create an offset (in metres)
-#' # each prediction cell is 444km2
-#' off.set <- 444*1000*1000
-#'
+#' \dontrun{
 #' # predict over a grid
-#' mod1.pred <- predict(mod1, mexdolphins$preddata, off.set)
+#' mod1.pred <- predict(mod1, preddata, preddata$area)
 #'
 #' # calculate the predicted abundance over the grid
 #' sum(mod1.pred)
 #'
 #' # plot the smooth
 #' plot(mod1)
+#'}
+#' # detach the data
+#' detach("mexdolphins")
 dsm <- function(formula, ddf.obj, segment.data, observation.data,
                 engine="gam", convert.units=1,
                 family=quasipoisson(link="log"), group=FALSE, gamma=1.4,
@@ -119,12 +114,12 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
   ## check that the necessary columns exist in the data
   # NB this doesn't return anything just throws an error if something
   #    bad happens
-  check.cols(ddf.obj, segment.data, observation.data, strip.width,segment.area)
+  check.cols(ddf.obj, segment.data, observation.data, strip.width, segment.area)
 
   ## build the data
   dat <- make.data(response, ddf.obj, segment.data, observation.data,
                    group, convert.units, availability, strip.width,
-                   segment.area)
+                   segment.area, family)
 
   ## if we are not modelling density/presence, then add in the offset
   ##  to the formula
@@ -150,7 +145,10 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
                             (mgcv.version[2]==7 & mgcv.version[3]<24))){
       message("You are using mgcv version < 1.7-24, please update to at least 1.7-24 to avoid fitting problems.")
     }
+  }
 
+  # GLMs and GAMMs don't support keeping the data
+  if(engine %in% c("glm", "gamm")){
     # unsupported
     control$keepData <- NULL
   }

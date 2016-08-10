@@ -1,16 +1,10 @@
 #' Variance propogation for DSM models
 #'
-#' Rather than use a bootstrap to calculate the variance in a \code{dsm} model,
-#' use the clever variance propogation trick from Williams et al. (2011).
+#' Rather than use a bootstrap to calculate the variance in a \code{dsm} model, use the clever variance propogation trick from Williams et al. (2011).
 #'
-#' The idea is to refit the spatial model but including the Hessian of the 
-#' offset as an extra term. Variance estimates using this new model can then 
-#' be used to calculate the variance of abundance estimates which incorporate 
-#' detection function uncertainty. Further mathematical details are given in 
-#' the paper in the references below.
+#' The idea is to refit the spatial model but including the Hessian of the offset as an extra term. Variance estimates using this new model can then be used to calculate the variance of abundance estimates which incorporate detection function uncertainty. Further mathematical details are given in the paper in the references below.
 #'
-#' Many prediction grids can be supplied by supplying a list of 
-#' \code{data.frame}s to the function.
+#' Many prediction grids can be supplied by supplying a list of \code{data.frame}s to the function.
 #'
 #' Note that this routine is only useful if a detection function has been used in the DSM.
 #'
@@ -33,7 +27,8 @@
 #' @references
 #' Williams, R., Hedley, S.L., Branch, T.A., Bravington, M.V., Zerbini, A.N. and Findlay, K.P. (2011). Chilean Blue Whales as a Case Study to Illustrate Methods to Estimate Abundance and Evaluate Conservation Status of Rare Species. Conservation Biology 25(3), 526-535.
 #' @export
-#' @importFrom stats as.formula
+#' @importFrom stats as.formula update
+#' @importFrom numDeriv grad
 #' @examples
 #' \dontrun{
 #'  library(Distance)
@@ -41,30 +36,24 @@
 #'
 #'  # load the Gulf of Mexico dolphin data (see ?mexdolphins)
 #'  data(mexdolphins)
+#'  attach(mexdolphins)
 #'
 #'  # fit a detection function and look at the summary
-#'  hr.model <- ds(mexdolphins$distdata, max(mexdolphins$distdata$distance),
+#'  hr.model <- ds(distdata, max(distdata$distance),
 #'                 key = "hr", adjustment = NULL)
 #'  summary(hr.model)
 #'
 #'  # fit a simple smooth of x and y
-#'  mod1 <- dsm(N~s(x,y), hr.model, mexdolphins$segdata, mexdolphins$obsdata)
-#'
-#'  # Calculate the offset...
-#'  off.set <- 444*1000*1000
+#'  mod1 <- dsm(N~s(x,y), hr.model, segdata, obsdata)
 #'
 #'  # Calculate the variance
-#'  mod1.var <- dsm.var.prop(mod1, mexdolphins$pred, off.set)
+#'  mod1.var <- dsm.var.prop(mod1, preddata, off.set=preddata$area)
 #'
-#'  # summary over the whole area in mexdolphins$pred
+#'  # this will give a summary over the whole area in mexdolphins$preddata
 #'
-#'  # Plot a map of the CV
-#'  #   need to format the prediction data with split
-#'  mod1.var.map <- dsm.var.prop(mod1,
-#'                  split(mexdolphins$pred,1:nrow(mexdolphins$pred)), off.set)
-#'  plot(mod1.var.map)
+#' # detach the data
+#' detach("mexdolphins")
 #' }
-#'
 dsm.var.prop<-function(dsm.obj, pred.data,off.set,
     seglen.varname='Effort', type.pred="response") {
 
@@ -113,16 +102,18 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
       return(object$par)
     }
     object$par <- params
-    object$ds$aux$ddfobj <- mrds:::assign.par(object$ds$aux$ddfobj,params)
+    object$ds$aux$ddfobj <- assign.par(object$ds$aux$ddfobj,params)
     return(object)
   }
 
   # function to find the derivatives of the offset
-  funco <- function(p){
+  linkfn <- dsm.obj$family$linkfun
+  funco <- function(p, linkfn){
     # set the parameters to be p
     ipo <- tweakParams(ddf.obj, p)
     # calculate the offset
-    ret <- log(2*as.vector(unique(predict(ipo,esw=TRUE, compute=TRUE)$fitted))*
+    ret <- linkfn(2*as.vector(unique(predict(ipo,esw=TRUE,
+                                             compute=TRUE)$fitted))*
             fo2data[[seglen.varname]])
     return(ret)
   }
@@ -132,7 +123,7 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
 
   # find the derivatives
   p0 <- tweakParams(ddf.obj) # returns the parameters to numderiv
-  firstD <- numderiv( funco, p0)
+  firstD <- numderiv(funco, p0, linkfn=linkfn)
 
   # if the derivatives were zero, throw an error
   if(all(firstD==0)){
@@ -153,10 +144,11 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
     formo[[3]] <- call( '+', formo[[3]], as.symbol(dmat.name))
 
     # put together the paraPen terms
-    paraterm<-list(list(ddf.obj$hess))
+    paraterm <- list(list(ddf.obj$hess))
     names(paraterm) <- dmat.name
     callo <- dsm.obj$call
-    callo$paraPen <- c(callo$paraPen, paraterm)
+    #callo$paraPen <- c(callo$paraPen, paraterm)
+    paraPen <- c(callo$paraPen, paraterm)
 
     # insert the extra data into the frame
     fo2data[[ dmat.name]] <- firstD
@@ -179,21 +171,19 @@ dsm.var.prop<-function(dsm.obj, pred.data,off.set,
       # add the extra random effect term to the formula
       for(i in 1:ncol(firstD)){
         this.dmat.name <- paste0(dmat.name,i)
-#        formo <- paste(formo," + s(",this.dmat.name,",bs=\"re\")",collapse="")
-rand.list[[this.dmat.name]]<-pdMat(form=~1)
+        rand.list[[this.dmat.name]]<-pdMat(form=~1)
         fo2data[[ this.dmat.name]] <- firstD[,i]
       }
-callo$random <- rand.list
+      callo$random <- rand.list
     }else{
       sqrt.D <- sqrt(S.e$values)
       firstD <- firstD*sqrt.D
 
       # add the extra random effect term to the formula
-#      formo <- paste(formo," + s(",dmat.name,",bs=\"re\")",collapse="")
-rand.list <- list()
-rand.list[[dmat.name]]<-pdMat(form=~1)
+      rand.list <- list()
+      rand.list[[dmat.name]]<-pdMat(form=~1)
       fo2data[[ dmat.name]] <- firstD
-callo$random <- rand.list
+      callo$random <- rand.list
     }
 
     # make the formula a formula
@@ -208,8 +198,9 @@ callo$random <- rand.list
 
   ## run the model
   if(!is.gamm){
-    fit.with.pen <- with(dsm.obj,withCallingHandlers(eval(callo),
-                                         warning=matrixnotposdef.handler))
+    # update the formula with the new term
+    fit.with.pen <- update(dsm.obj, formula=formo, paraPen=paraPen,
+                           data=fo2data)
   }else{
     fit.with.pen <- do.call("gamm",callo)
     fit.with.pen <- fit.with.pen$gam
@@ -217,7 +208,7 @@ callo$random <- rand.list
   # strip dsm class so we can use gam methods
   class(fit.with.pen) <- class(fit.with.pen)[class(fit.with.pen)!="dsm"]
 
-  # Diagnostic from Mark
+  # Diagnostic from MVB
   # check that the fitted model isn't too different, used in summary()
   model.check <- summary(fitted(fit.with.pen) - fitted(dsm.obj))
 
@@ -228,7 +219,8 @@ callo$random <- rand.list
   # depending on whether we have response or link scale predictions...
   if(type.pred=="response"){
     tmfn <- dsm.obj$family$linkinv
-    dtmfn <- function(eta){vapply(eta, numderiv, numeric(1), f=tmfn)}
+    dtmfn <- function(eta){ifelse(is.na(eta), NA,
+                           numDeriv::grad(tmfn, ifelse(is.na(eta), 0, eta)))}
   }else if(type.pred=="link"){
     tmfn <- identity
     dtmfn <- function(eta){1}
@@ -299,7 +291,7 @@ callo$random <- rand.list
                  dsm.object = dsm.obj,
                  model.check = model.check,
                  deriv = firstD,
-                 seglen.varname=seglen.varname,
+                 seglen.varname = seglen.varname,
                  type.pred=type.pred
                 )
 
@@ -311,61 +303,77 @@ callo$random <- rand.list
 ####### this is all utility stuff below here, taken from Mark's packages
 
 # from Mark Bravington's handy2
-numderiv<-function (f, x0, eps = 1e-04, TWICE. = TRUE, param.name = NULL,
-    ..., SIMPLIFY = TRUE)
-{
-    if (is.null(param.name)) 
-        ff <- function(x, ...) f(x, ...)
-    else ff <- function(x, ...) {
-        ll <- c(list(x), list(...))
-        names(ll)[1] <- param.name
-        do.call("f", ll)
+numderiv <- function(f, x0, eps = 1e-04, TWICE. = TRUE, param.name = NULL,
+                     ..., SIMPLIFY = TRUE){
+  if(is.null(param.name)){
+    ff <- function(x, ...) f(x, ...)
+  }else{
+    ff <- function(x, ...){
+      ll <- c(list(x), list(...))
+      names(ll)[1] <- param.name
+      do.call("f", ll)
     }
-    f0 <- ff(x0, ...)
-    n <- length(x0)
-    m <- matrix(0, length(f0), n)
-    for (i in 1:n) {
-        this.eps <- eps * if (x0[i] == 0)
-            1
-        else x0[i]
-        m[, i] <- (ff(x0 + this.eps * (1:n == i), ...) - f0)/this.eps
+  }
+  f0 <- ff(x0, ...)
+  n <- length(x0)
+  m <- matrix(0, length(f0), n)
+  for(i in 1:n){
+    if(x0[i] == 0){
+      this.eps <- eps
+    }else{
+      this.eps <- eps * x0[i]
     }
-    if (!is.null(dim(f0)))
-        dim(m) <- c(dim(f0), n)
-    if (TWICE.) {
-        mc <- match.call()
-        mc$eps <- -eps
-        mc$TWICE. <- FALSE
-        m <- 0.5 * (m + eval(mc, sys.frame(sys.parent())))
-    }
-    if (any(dim(m) == length(m)) && SIMPLIFY)
-        m <- c(m)
-    return(m)
+    m[, i] <- (ff(x0 + this.eps * (1:n == i), ...) - f0)/this.eps
+  }
+  if(!is.null(dim(f0))){
+    dim(m) <- c(dim(f0), n)
+  }
+  if(TWICE.){
+    mc <- match.call()
+    mc$eps <- -eps
+    mc$TWICE. <- FALSE
+    m <- 0.5 * (m + eval(mc, sys.frame(sys.parent())))
+  }
+  if(any(dim(m) == length(m)) && SIMPLIFY){
+    m <- c(m)
+  }
+  return(m)
 }
 
 # from mvbutils
 "%**%"<-function(x, y){
-    dimnames(x) <- NULL
-    dimnames(y) <- NULL
-    if (length(dim(x)) == 2 && length(dim(y)) == 2 && dim(x)[2] ==
-        1 && dim(y)[1] == 1)
-        return(c(x) %o% c(y))
-    if ((!is.null(dim(x)) && any(dim(x) == 1)))
-        dim(x) <- NULL
-    if ((!is.null(dim(y)) && any(dim(y) == 1)))
-        dim(y) <- NULL
-    if (is.null(dim(x)) && is.null(dim(y))) {
-        if (length(x) == length(y))
-            x <- x %*% y
-        else {
-            if ((length(x) != 1) && (length(y) != 1))
-                stop(paste("lengths of x (",length(x),") and y (",
-                  length(y),") are incompatible",sep=""))
-            else x <- x * y
-        }
-    }
-    else x <- x %*% y
-    if ((!is.null(dim(x)) && any(dim(x) == 1)))
-        dim(x) <- NULL
-    x
+  dimnames(x) <- NULL
+  dimnames(y) <- NULL
+
+  if(length(dim(x)) == 2 && length(dim(y)) == 2 && dim(x)[2] ==
+     1 && dim(y)[1] == 1){
+    return(c(x) %o% c(y))
+  }
+
+  if((!is.null(dim(x)) && any(dim(x) == 1))){
+    dim(x) <- NULL
+  }
+
+  if((!is.null(dim(y)) && any(dim(y) == 1))){
+    dim(y) <- NULL
+  }
+  if(is.null(dim(x)) && is.null(dim(y))){
+    if(length(x) == length(y)){
+      x <- x %*% y
+    }else{
+      if ((length(x) != 1) && (length(y) != 1)){
+          stop(paste("lengths of x (",length(x),") and y (",
+            length(y),") are incompatible",sep=""))
+      }else{
+        x <- x * y
+      }
+     }
+  }else{
+    x <- x %*% y
+  }
+
+  if((!is.null(dim(x)) && any(dim(x) == 1))){
+    dim(x) <- NULL
+  }
+  return(x)
 }

@@ -1,6 +1,7 @@
 #' @importFrom stats aggregate
 make.data <- function(response, ddfobject, segdata, obsdata, group,
-                      convert.units, availability, strip.width, segment.area){
+                      convert.units, availability, strip.width, segment.area,
+                      family){
 
   # probably want to do something smart here...
   seglength.name<-'Effort'
@@ -23,7 +24,7 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
   }
 
   # if we fitted a detection function
-  if (!is.null(ddfobject)){
+  if(!is.null(ddfobject)){
     # grab the probabilities of detection
     fitted.p <- fitted(ddfobject)
 
@@ -34,6 +35,9 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
     if(nrow(obsdata) == 0){
       stop("No observations in detection function matched those in observation table. Check the \"object\" column.")
     }
+    # reorder the fitted ps, making sure that
+    # they match the ordering in obsdata
+    fitted.p <- fitted.p[match(obsdata$object, names(fitted.p))]
   }else{
     # strip transects or presence/absence data
     fitted.p <- 1
@@ -42,11 +46,6 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
     }
   }
 
-  # if the ps are all the same (count model) then just grab the 1 unique
-  # value
-  if(response %in% c("N","abundance","count","n")){
-    fitted.p <- unique(fitted.p)
-  }
 
   ## Aggregate response values of the sightings over segments
   if(response %in% c("D","density","Dhat","density.est")){
@@ -78,19 +77,33 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
   }
 
   # name the response data columns
-  names(responsedata)<-c(segnum.name,response)
+  names(responsedata) <- c(segnum.name, response)
 
   # Next merge the response variable with the segment records and any
   # response variable that is NA should be assigned 0 because these
   # occur due to 0 sightings
-  dat <- merge(segdata,responsedata,by=segnum.name,all.x=T)
-  dat[,response][is.na(dat[,response])] <- 0
+  dat <- merge(segdata, responsedata, by=segnum.name, all.x=TRUE)
+  dat[,response][is.na(dat[, response])] <- 0
+
+  # for the offsets with effective area, need to make sure that
+  # the ps match the segments
+  # fitted.p is already in the same order as responsedata/obsdata
+  if(off.set == "eff.area"){
+    # if there are no covariates, and all the fitted ps are the same
+    # then just duplicate that value enough times for the segments
+    if(length(unique(fitted.p)) == 1){
+      fitted.p <- rep(unique(fitted.p), nrow(dat))
+    }else{
+      stop("Covariate detection functions are not currently supported with effective area as the offset")
+    }
+  }
+
 
   if(!is.null(segment.area)){
 
     # pull the column if segment.area is character
     if(is.character(segment.area)){
-      segment.area <- dat[,segment.area]
+      segment.area <- dat[, segment.area]
     }
 
     dat$off.set <- switch(off.set,
@@ -129,7 +142,7 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
     # check that none of the Effort values are zero
     if(any(dat[,seglength.name]==0)){
       stop(paste0("Effort values for segments: ",
-                  paste(which(dat[,seglength.name]==0),collapse=", "),
+                  paste(which(dat[,seglength.name]==0), collapse=", "),
                   " are 0."))
     }
 
@@ -156,8 +169,8 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
   # multiply up by conversion factor
   dat$off.set <- dat$off.set*convert.units
 
-  # Set offset as log of area or effective area
-  dat$off.set <- log(dat$off.set)
+  # Set offset as log (or whatever link is) of area or effective area
+  dat$off.set <- family$linkfun(dat$off.set)
 
   return(dat)
 }

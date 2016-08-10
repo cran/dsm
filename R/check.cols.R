@@ -16,6 +16,15 @@ check.cols <- function(ddf.obj, segment.data, observation.data, strip.width,
   checks <-list(segment.data = c("Effort","Sample.Label"),
                 observation.data = c("object","Sample.Label","size","distance"))
 
+  # don't need to check distance if we don't have a detection function
+  if(is.null(ddf.obj)){
+    checks$observation.data <- checks$observation.data[checks$observation.data!="distance"]
+  }
+
+  if(!is.null(segment.area)){
+    checks$segment.data <- checks$segment.data[checks$segment.data != "Effort"]
+  }
+
   for(i in 1:length(checks)){
     check.res <- checks[[i]] %in% names(get(names(checks)[[i]]))
     if(any(!check.res)){

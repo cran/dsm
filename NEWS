@@ -1,7 +1,27 @@
 dsm news!
 
+# 2.2.12
+ * The alpha argument now works for analytical variance reported using dsm.var.prop and dsm.var.gam print.summary and summary methods. Thanks to Jason Roberts and Eric Rexstad for spotting this issue.
+ * dsm now uses numDeriv::grad to calculate derivatives for variance estimation -- this should be much faster. Thanks to Jason Roberts for this fix.
+ * dsm now requires mrds version 2.1.15 or higher, due to internal changes
+ * fixed issue where Effort column was required even when segment.area was specified. Thanks to Greg Lollback for spotting this issue.
+ * ensured that ordering of segments matched the ordering of the observations so that aggregation of observations are correct. Thanks to Dave Fifield for reporting this bug and suggesting a fix.
+ * check.cols no longer checks to see if there is a column called "distance" when strip transects are being used
+
+# 2.2.11
+ * dsm.var.prop uses update() rather than messing around with eval()
+ * print.summary.dsm.var didn't work for GAM variance when no detection function was specified, now fixed (thanks to Natalia Dellabianca for spotting this)
+ * Removed non-working plot() code in variance examples --  see the Mexico pantropical spotted dolphins for a proper treatment of plotting using projections (http://distancesampling.org/R/vignettes/mexico-analysis.html)
+ * plot.var.gam no longer crashes by default when distance data doesn't have columns "x" and "y"
+
+# 2.2.10
+ * corrected offsets in examples in dsm, dsm.var.prop, dsm.var.movblk
+ * updated mexdolphins data with lat/long reversal in prediction data and non-list storage
+ * stopped use of rqgam.check from being used with non-negbin/Tweedie responses (thanks to Phil Bouchet for highlighting this issue).
+
 # 2.2.9
  * Moving block bootstrap now works when there is no detection function (suggested by Laura Williamson)
+ * Mexico dolphin data has had the areas of the prediction grids and segments re-projected. Thanks to Phil Bouchet for pointing out this error. Context: https://groups.google.com/d/msg/distance-sampling/oj1j8mSmnTc/3cOAAJgBw9MJ
 
 
 # 2.2.8
