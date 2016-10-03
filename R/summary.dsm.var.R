@@ -138,7 +138,7 @@ summary.dsm.var <- function(object, alpha=0.05, boxplot.coef=1.5,
   }else{
   ### varprop and "Bayesian" stuff
     sinfo$varprop <- !is.null(object$deriv)
-    sinfo$saved<-object
+    sinfo$saved <- object
     sinfo$bootstrap <- object$bootstrap
 
     # what if we had multiple areas (ie this is from a CV plot?)
@@ -196,6 +196,9 @@ summary.dsm.var <- function(object, alpha=0.05, boxplot.coef=1.5,
       sinfo$gam.cv <- sinfo$se/sinfo$pred.est
 
       sinfo$cv <- sqrt(cvp.sq+sinfo$gam.cv^2)
+
+      # total se
+      sinfo$se <- sinfo$cv*sinfo$pred.est
     }
   }
 
