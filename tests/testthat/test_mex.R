@@ -24,36 +24,34 @@ test_that("Do we get the same results?",{
   expect_equal(hn.model$ddf$par, ddf.par, tolerance=par.tol)
 
   # fit a simple smooth of x and y
-  mod1<-dsm(N~s(x,y), hn.model, segdata, obsdata)
+  mod1 <- dsm(count~s(x, y), hn.model, segdata, obsdata)
   #summary(mod1)
 
 
-  expect_equal(unname(mod1$gcv.ubre), 42.9169051,tolerance=par.tol)
+  expect_equal(unname(mod1$gcv.ubre), 936.0362722, tolerance=par.tol, check.attributes=FALSE)
 
 
   expect_error(dsm.cor(mod1,resid.type="d",max.lag=9),
                "No column called Segment.Label in data")
+
+  # predict(model) shoudld be the same as fitted(model)
+  expect_equal(as.vector(predict(mod1)), as.vector(fitted(mod1)), tolerance=par.tol)
 })
 
 test_that("Density weighting",{
 
-  # fit density model
-  mod1 <- dsm(D~s(x,y), hn.model, segdata, obsdata)
-
-  # compare when we set the weights
-  mod1.w <- dsm(D~s(x,y), hn.model, segdata, obsdata,
-                weights=mod1$data$segment.area)
-
-  expect_equal(fitted(mod1),fitted(mod1.w),tolerance=par.tol)
-
+  ## compare when we set the weights
+  #mod1.w <- dsm(D~s(x,y), hn.model, segdata, obsdata,
+  #              weights=mod1$data$segment.area/sum(mod1$data$segment.area))
+  #expect_equal(fitted(mod1),fitted(mod1.w),tolerance=par.tol)
 
   # setting weights to 1 or another constant
   # compare when we set the weights
   mod1.w1 <- dsm(D~s(x,y), hn.model, segdata, obsdata,
-                weights=rep(1,nrow(segdata)))
+                 weights=rep(1,nrow(segdata)))
   # compare when we set the weights
   mod1.w2 <- dsm(D~s(x,y), hn.model, segdata, obsdata,
-                weights=rep(100,nrow(segdata)))
+                 weights=rep(100,nrow(segdata)))
 
   expect_equal(fitted(mod1.w1),fitted(mod1.w2),tolerance=par.tol)
 
@@ -62,7 +60,6 @@ test_that("Density weighting",{
                 weights=1)
 
   expect_equal(fitted(mod1.ws1),fitted(mod1.w2),tolerance=par.tol)
-
 })
 
 detach("mexdolphins")
