@@ -1,5 +1,17 @@
 dsm news!
 
+# 2.2.15
+ * when mexdolphins is loaded using data(), the data no longer need to be attach()ed
+ * dsm.var.prop throws an error when count or N are not used as the response.
+ * dsm.var.prop now calls dsm_varprop, which keeps the scale parameter constant when refitting models for variance propagation. dsm_varprop provides a lower-level interface to variance propagation and is probably faster and more flexible.
+ * add vis.concurvity to visually assess concurvity (colinearity extended to smooth terms) in the model
+ * new model diagnostic function: plot_pred_by_term -- plots the effect of each smooth in the model spatially.
+ * remove "abundance" option for the response, use "count"
+ * dsm.var.prop and dsm_varprop have better diagnostics for checking the variance model hasn't done something weird
+ * dsm.var.movblk discards replicates where the model didn't converge
+ * fix potential issue with negative binomial response is used with variance propagation (due to scale parameterisations). dsm_varprop now refits nb() models as negbin() but we advise users to look into this more deeply. Thanks to Eric Rexstad for spotting this.
+ * fix bug in predict.dsm() where predictions for "density" response were not including the offset. Thanks to Len Thomas for spotting this.
+
 # 2.2.14
  * nasty bug in predict.dsm fixed: was logging the offset twice when newdata was not provided, leading to very odd checking plots. This also effected the results of predict() when newdata= was not specified. Thanks to Megan Ferguson for alerting us to this.
  * add support for point transects(!)

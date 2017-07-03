@@ -7,7 +7,6 @@ par.tol<-1e-5
 context("test inputs")
 # load the Gulf of Mexico dolphin data
 data(mexdolphins)
-attach(mexdolphins)
 
 # fit a detection function
 suppressMessages(hn.model <- ds(distdata, max(distdata$distance),
@@ -25,10 +24,6 @@ test_that("formula specs",{
 
   count.count <- dsm(count~s(x,y), hn.model, segdata, obsdata)
   expect_equal(unname(count.count$gcv.ubre), count.reml, tolerance=par.tol, check.attributes=FALSE)
-
-  count.abundance <- dsm(abundance~s(x,y), hn.model, segdata, obsdata)
-  expect_equal(unname(count.abundance$gcv.ubre), count.reml,tolerance=par.tol, check.attributes=FALSE)
-
 
   ## models for abund.est
   abund.est.gcv <- 992.0182117
@@ -105,7 +100,3 @@ test_that("Missing columns cause errors",{
                fixed=TRUE)
 
 })
-
-
-
-detach("mexdolphins")

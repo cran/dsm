@@ -1,14 +1,20 @@
-#' Variance propogation for DSM models
+#' Prediction variance propagation for DSMs
 #'
-#' Rather than use a bootstrap to calculate the variance in a \code{dsm} model, use the clever variance propogation trick from Williams et al. (2011).
+#' To ensure that uncertainty from the detection function is correctly propagated to the final variance estimate of abundance, this function uses a method first detailed in Williams et al (2011).
 #'
-#' The idea is to refit the spatial model but including the Hessian of the offset as an extra term. Variance estimates using this new model can then be used to calculate the variance of abundance estimates which incorporate detection function uncertainty. Further mathematical details are given in the paper in the references below.
+#' The idea is to refit the spatial model but including an extra random effect. This random effect has zero mean and hence to effect on point estimates. Its variance is the Hessian of the detection function. Variance estimates then incorporate detection function uncertainty. Further mathematical details are given in the paper in the references below.
 #'
 #' Many prediction grids can be supplied by supplying a list of \code{data.frame}s to the function.
 #'
-#' Note that this routine is only useful if a detection function has been used in the DSM.
+#' Note that this routine simply calls \code{\link{dsm_varprop}}. If you don't require multiple prediction grids, the other routine will probably be faster.
 #'
-#' Based on (much more general) code from Mark Bravington and Sharon Hedley.
+#' @section Diagnostics:
+#' The summary output from the function includes a simply diagnostic that shows the average probability of detection from the "original" fitted model (the model supplied to this function; column \code{Fitted.model}) and the probability of detection from the refitted model (used for variance propagation; column \code{Refitted.model}) along with the standard error of the probability of detection from the fitted model (\code{Fitted.model.se}), at the unique values of any covariates used in the detection function. If there are large differences between the probabilities of detection then there are potentially problems with the fitted model, the variance propagation or both. This can be because the fitted model does not account for enough of the variability in the data and in refitting the variance model accounts for this in the random effect.
+#'
+#' @section Limitations:
+#' Note that this routine is only useful if a detection function has been used in the DSM. It cannot be used when the \code{Nhat}, \code{abundance.est} responses are used. Importantly this requires that if the detection function has covariates, then these do not vary within a segment (so, for example covariates like sex cannot be used).
+#'
+#' Negative binomial models fitted using the \code{\link{nb}} family will give strange results (overly big variance estimates due to scale parameter issues) so \code{nb} models are automatically refitted with \code{\link{negbin}} (with a warning). It is probably worth refitting these models with \code{negbin} manually (perhaps giving a smallish range of possible values for the negative binomial parameter) to check that convergence was reached.
 #'
 #' @inheritParams dsm.var.gam
 #' @return a list with elements
@@ -36,49 +42,54 @@
 #'
 #'  # load the Gulf of Mexico dolphin data (see ?mexdolphins)
 #'  data(mexdolphins)
-#'  attach(mexdolphins)
 #'
-#'  # fit a detection function and look at the summary
-#'  hr.model <- ds(distdata, max(distdata$distance),
-#'                 key = "hr", adjustment = NULL)
-#'  summary(hr.model)
+#'  # fit a detection function
+#'  df <- ds(distdata, max(distdata$distance),
+#'           key = "hn", adjustment = NULL)
 #'
 #'  # fit a simple smooth of x and y
-#'  mod1 <- dsm(N~s(x,y), hr.model, segdata, obsdata)
+#'  mod1 <- dsm(count~s(x, y), df, segdata, obsdata, family=tw())
 #'
 #'  # Calculate the variance
-#'  mod1.var <- dsm.var.prop(mod1, preddata, off.set=preddata$area)
-#'
 #'  # this will give a summary over the whole area in mexdolphins$preddata
-#'
-#' # detach the data
-#' detach("mexdolphins")
+#'  mod1.var <- dsm.var.prop(mod1, preddata, off.set=preddata$area)
+#'  summary(mod1.var)
 #' }
-dsm.var.prop<-function(dsm.obj, pred.data, off.set,
-                       seglen.varname='Effort', type.pred="response") {
+dsm.var.prop <- function(dsm.obj, pred.data, off.set,
+                         seglen.varname='Effort', type.pred="response") {
 
-  is.gamm <- FALSE
-  # if we have a gamm, then just pull out the gam object
+  ## pre-checking...
+  # die if we have a gamm
   if(any(class(dsm.obj)=="gamm")){
-    dsm.obj <- dsm.obj$gam
-    is.gamm <- TRUE
+    stop("GAMMs are not supported.")
   }
 
-  # strip dsm class so we can use gam methods
-  class(dsm.obj) <- class(dsm.obj)[class(dsm.obj)!="dsm"]
-
-  # if all the offsets are the same then we can jsut supply 1 and rep it
-  if(length(off.set)==1){
-    if(is.null(nrow(pred.data))){
-      off.set <- rep(list(off.set),length(pred.data))
-    }else{
-      off.set <- rep(off.set,nrow(pred.data))
-    }
-  }
-  
   # check that there are no covariates in the df model
   if(length(unique(dsm.obj$ddf$fitted)) > 1){
     stop("Covariate detection functions are not currently supported within dsm.var.prop.")
+  }
+
+  # break if we use the wrong response
+  if(!(as.character(dsm.obj$formula)[2] %in% c("N", "n", "count"))){
+    stop("Variance propagation can only be used with count as the response.")
+  }
+
+  # if there is no ddf object, then we should stop!
+  # thanks to Adrian Schiavini for spotting this
+  if(is.null(dsm.obj$ddf)){
+    stop("No detection function in this analysis, use dsm.var.gam")
+  }
+
+  ## end of checks
+
+  ## data setup
+  # if all the offsets are the same then we can just supply 1 and rep it
+  if(length(off.set)==1){
+    if(is.null(nrow(pred.data))){
+      off.set <- rep(list(off.set), length(pred.data))
+    }else{
+      off.set <- rep(off.set, nrow(pred.data))
+    }
   }
 
   # make sure if one of pred.data and off.set is not a list we break
@@ -92,199 +103,73 @@ dsm.var.prop<-function(dsm.obj, pred.data, off.set,
     }
   }
 
-  # pull out the ddf object
-  ddf.obj <- dsm.obj$ddf
-
-  # if there is no ddf object, then we should stop!
-  # thanks to Adrian Schiavini for spotting this
-  if(is.null(ddf.obj)){
-    stop("No detection function in this analysis, use dsm.var.gam")
+  # push the offsets into the data...
+  for(i in seq_along(pred.data)){
+    pred.data[[i]]$off.set <- off.set[[i]]
   }
 
-  # this function changes the parameters in the ddf object
-  tweakParams <- function(object, params) {
-    if(missing(params)){
-      return(object$par)
-    }
-    object$par <- params
-    object$ds$aux$ddfobj <- assign.par(object$ds$aux$ddfobj,params)
-    return(object)
-  }
+  # mudge together all the prediction data
+  all_preddata <- do.call("rbind", pred.data)
+  all_preddata[["XX"]] <- matrix(0, nrow(all_preddata), length(dsm.obj$ddf$par))
 
-  # function to find the derivatives of the offset
+  ## end data setup
+
+
+  # extract the link & invlink
   linkfn <- dsm.obj$family$linkfun
-  funco <- function(p, linkfn){
-    # set the parameters to be p
-    ipo <- tweakParams(ddf.obj, p)
-    # calculate the offset
-    ret <- linkfn(2*as.vector(unique(predict(ipo,esw=TRUE,
-                                             compute=TRUE)$fitted))*
-            fo2data[[seglen.varname]])
-    return(ret)
-  }
+  linkinvfn <- dsm.obj$family$linkinv
 
-  # pull out the data
-  fo2data <- dsm.obj$data
+  # storage
+  vpred <- length(pred.data)
+  preddo <- list()
+  varp <- list()
 
-  # find the derivatives
-  p0 <- tweakParams(ddf.obj) # returns the parameters to numderiv
-  firstD <- numderiv(funco, p0, linkfn=linkfn)
-
-  # if the derivatives were zero, throw an error
-  if(all(firstD==0)){
-    stop('Doffset/Dpars==0... really??!!')
-  }
-
-  # now construct the extra term...
-  formo <- dsm.obj$formula
-  dmat.name <- '.D1'
-  names.to.avoid <- unique( c( all.names( formo), names( fo2data)))
-  while( dmat.name %in% names.to.avoid){
-    dmat.name <- paste('.',dmat.name,sep="")
-  }
+  # to the varprop thing once to get the model
+  varp <- dsm_varprop(dsm.obj, pred.data[[1]])
+  refit <- varp$refit
 
 
-  if(!is.gamm){
-    # pull out the call
-    formo[[3]] <- call( '+', formo[[3]], as.symbol(dmat.name))
+  # get a big Lp matrix now and just get rows below
+  Lp_big <- predict(refit, newdata=all_preddata, type="lpmatrix")
 
-    # put together the paraPen terms
-    paraterm <- list(list(ddf.obj$hess))
-    names(paraterm) <- dmat.name
-    callo <- dsm.obj$call
-    #callo$paraPen <- c(callo$paraPen, paraterm)
-    paraPen <- c(callo$paraPen, paraterm)
-
-    # insert the extra data into the frame
-    fo2data[[ dmat.name]] <- firstD
-  }else{
-    # pull out the call
-    callo <- eval(dsm.obj$gamm.call.list)
-
-    # get the formula and make it a string
-    formo <- paste(formo[[2]],formo[[1]],as.character(formo)[[3]],collapse="")
-
-    # need to reparametrise
-    S <- as.matrix(ddf.obj$hess)
-    S.e <- eigen(S)
-    if(is.matrix(firstD)){
-      sqrt.D <- diag(sqrt(S.e$values))
-      firstD <- firstD%*%sqrt.D
-
-      rand.list <- list()
-
-      # add the extra random effect term to the formula
-      for(i in 1:ncol(firstD)){
-        this.dmat.name <- paste0(dmat.name,i)
-        rand.list[[this.dmat.name]]<-pdMat(form=~1)
-        fo2data[[ this.dmat.name]] <- firstD[,i]
-      }
-      callo$random <- rand.list
-    }else{
-      sqrt.D <- sqrt(S.e$values)
-      firstD <- firstD*sqrt.D
-
-      # add the extra random effect term to the formula
-      rand.list <- list()
-      rand.list[[dmat.name]]<-pdMat(form=~1)
-      fo2data[[ dmat.name]] <- firstD
-      callo$random <- rand.list
-    }
-
-    # make the formula a formula
-    formo <- as.formula(formo)
-  }
-
-  # put the right objects into the call object
-  callo$formula <- formo
-  callo$family <- dsm.obj$family
-  callo$data <- fo2data
-  callo$knots <- dsm.obj$knots
-
-  ## run the model
-  if(!is.gamm){
-    # update the formula with the new term
-    fit.with.pen <- update(dsm.obj, formula=formo, paraPen=paraPen,
-                           data=fo2data)
-  }else{
-    fit.with.pen <- do.call("gamm",callo)
-    fit.with.pen <- fit.with.pen$gam
-  }
-  # strip dsm class so we can use gam methods
-  class(fit.with.pen) <- class(fit.with.pen)[class(fit.with.pen)!="dsm"]
-
-  # Diagnostic from MVB
-  # check that the fitted model isn't too different, used in summary()
-  model.check <- summary(fitted(fit.with.pen) - fitted(dsm.obj))
-
-  cft <- coef(fit.with.pen)
-  preddo <- list(length(pred.data))
-  dpred.db <- matrix(0, length(pred.data), length(cft))
-
-  # depending on whether we have response or link scale predictions...
-  if(type.pred=="response"){
-    tmfn <- dsm.obj$family$linkinv
-    dtmfn <- function(eta){ifelse(is.na(eta), NA,
-                           numDeriv::grad(tmfn, ifelse(is.na(eta), 0, eta)))}
-  }else if(type.pred=="link"){
-    tmfn <- identity
-    dtmfn <- function(eta){1}
-  }
+  # start indices
+  start <- 1
+  end <- nrow(pred.data[[1]])
 
   # loop over the prediction grids
   for(ipg in seq_along(pred.data)){
-    # if we have a single paramter model (e.g. half-normal) need to be careful
-    if(is.matrix(firstD)){
-      if(!is.gamm){
-        pred.data[[ipg]][[dmat.name]] <- matrix(0,
-                                                nrow(pred.data[[ipg]]),
-                                                ncol(firstD))
-      }else{
-        for(i in 1:ncol(firstD)){
-          this.dmat.name <- paste0(dmat.name,i)
-          pred.data[[ipg]][[this.dmat.name]] <- matrix(0,
-                                                       nrow(pred.data[[ipg]]),
-                                                       ncol(firstD))
-        }
-      }
-    }else{
-      pred.data[[ipg]][[dmat.name]] <- rep(0, nrow(pred.data[[ipg]]))
-    }
 
-    ### fancy lp matrix stuff
-    # set the offset to be zero here so we can use lp
-    pred.data[[ipg]]$off.set<-rep(0,nrow(pred.data[[ipg]]))
+    # get some data
+    newdata <- pred.data[[ipg]]
+    Lp <- Lp_big[start:end,,drop=FALSE]
 
-    lpmat <- predict(fit.with.pen, newdata=pred.data[[ ipg]], type='lpmatrix')
-    lppred <- lpmat %**% cft
+    # predictions on the link scale
+    pred <- Lp %*% coef(refit)
+    pred <- newdata$off.set * linkinvfn(pred)
 
-    # if the offset is just one number then repeat it enough times
-    if(length(off.set[[ipg]])==1){
-      this.off.set <- rep(off.set[[ipg]],nrow(pred.data[[ipg]]))
-    }else{
-      this.off.set <- off.set[[ipg]]
-    }
+    # get variance-covariance
+    vc <- refit$Vp
 
-    preddo[[ipg]] <-  this.off.set %**% tmfn(lppred)
-    dpred.db[ipg,] <- this.off.set %**% (dtmfn(lppred)*lpmat)
-    # explanation of the above line and why we find this derivative
-    # BTW in 'varpred', there is a decoy option 'vmethod' which at the
-    # moment has to be '"delta"', for how to deal with nonlinearity in the
-    # "link" of 'fitobj'. Could be done by simulation instead, and that would
-    # be more accurate (if you did enough). However, in my limited experience:
-    # once you've got a CV so big that the delta-method doesn't work, then
-    # your estimate is officially Crap and there is not much point in
-    # expending extra effort to work out exactly how Crap!
+    # this is why we can only use log link
+    dNdbeta <- t(pred)%*%Lp
+
+    # make a sandwich
+    var_p <- dNdbeta %*% vc %*% t(dNdbeta)
+
+    # apply the link function to the offset
+    # NB this is because refit is a gam not dsm object! If refit is dsm
+    #    then this will get done in predict.dsm
+    newdata$off.set <- linkfn(newdata$off.set)
+
+
+    vpred[ipg] <- var_p
+    preddo[[ipg]] <- sum(pred)
+
+    # get next indices
+    start <- end+1
+    end <- start + nrow(pred.data[[ipg]])-1
   }
 
-  # "'vpred' is the covariance of all the summary-things." - MVB
-  # so we want the diagonals if length(pred.data)>1
-  # A B A^tr
-  vpred <- dpred.db %**% tcrossprod(vcov(fit.with.pen), dpred.db)
-
-  if(is.matrix(vpred)){
-    vpred <- diag(vpred)
-  }
 
   result <- list(pred.var = vpred,
                  bootstrap = FALSE,
@@ -292,10 +177,10 @@ dsm.var.prop<-function(dsm.obj, pred.data, off.set,
                  pred.data = pred.data,
                  pred = preddo,
                  off.set = off.set,
-                 model = fit.with.pen,
+                 model = varp$refit,
                  dsm.object = dsm.obj,
-                 model.check = model.check,
-                 deriv = firstD,
+                 model.check = varprop_check(varp),
+                 #deriv = firstD,
                  seglen.varname = seglen.varname,
                  type.pred=type.pred
                 )
@@ -303,82 +188,4 @@ dsm.var.prop<-function(dsm.obj, pred.data, off.set,
   class(result) <- "dsm.var"
 
   return(result)
-}
-
-####### this is all utility stuff below here, taken from Mark's packages
-
-# from Mark Bravington's handy2
-numderiv <- function(f, x0, eps = 1e-04, TWICE. = TRUE, param.name = NULL,
-                     ..., SIMPLIFY = TRUE){
-  if(is.null(param.name)){
-    ff <- function(x, ...) f(x, ...)
-  }else{
-    ff <- function(x, ...){
-      ll <- c(list(x), list(...))
-      names(ll)[1] <- param.name
-      do.call("f", ll)
-    }
-  }
-  f0 <- ff(x0, ...)
-  n <- length(x0)
-  m <- matrix(0, length(f0), n)
-  for(i in 1:n){
-    if(x0[i] == 0){
-      this.eps <- eps
-    }else{
-      this.eps <- eps * x0[i]
-    }
-    m[, i] <- (ff(x0 + this.eps * (1:n == i), ...) - f0)/this.eps
-  }
-  if(!is.null(dim(f0))){
-    dim(m) <- c(dim(f0), n)
-  }
-  if(TWICE.){
-    mc <- match.call()
-    mc$eps <- -eps
-    mc$TWICE. <- FALSE
-    m <- 0.5 * (m + eval(mc, sys.frame(sys.parent())))
-  }
-  if(any(dim(m) == length(m)) && SIMPLIFY){
-    m <- c(m)
-  }
-  return(m)
-}
-
-# from mvbutils
-"%**%"<-function(x, y){
-  dimnames(x) <- NULL
-  dimnames(y) <- NULL
-
-  if(length(dim(x)) == 2 && length(dim(y)) == 2 && dim(x)[2] ==
-     1 && dim(y)[1] == 1){
-    return(c(x) %o% c(y))
-  }
-
-  if((!is.null(dim(x)) && any(dim(x) == 1))){
-    dim(x) <- NULL
-  }
-
-  if((!is.null(dim(y)) && any(dim(y) == 1))){
-    dim(y) <- NULL
-  }
-  if(is.null(dim(x)) && is.null(dim(y))){
-    if(length(x) == length(y)){
-      x <- x %*% y
-    }else{
-      if ((length(x) != 1) && (length(y) != 1)){
-          stop(paste("lengths of x (",length(x),") and y (",
-            length(y),") are incompatible",sep=""))
-      }else{
-        x <- x * y
-      }
-     }
-  }else{
-    x <- x %*% y
-  }
-
-  if((!is.null(dim(x)) && any(dim(x) == 1))){
-    dim(x) <- NULL
-  }
-  return(x)
 }

@@ -53,6 +53,7 @@ function uncertainty, one not.
  uncertainty using the delta method. This assumes that the detection function
  and the spatial model are INDEPENDENT. This is probably not reasonable.
 }
+
 \examples{
 \dontrun{
 library(Distance)
@@ -60,7 +61,6 @@ library(dsm)
 
 # load the Gulf of Mexico dolphin data (see ?mexdolphins)
 data(mexdolphins)
-attach(mexdolphins)
 
 # fit a detection function and look at the summary
 hr.model <- ds(distdata, max(distdata$distance),
@@ -68,7 +68,7 @@ hr.model <- ds(distdata, max(distdata$distance),
 summary(hr.model)
 
 # fit a simple smooth of x and y
-mod1<-dsm(N~s(x,y), hr.model, segdata, obsdata)
+mod1 <- dsm(count~s(x, y), hr.model, segdata, obsdata)
 summary(mod1)
 
 # calculate the variance by 500 moving block bootstraps
@@ -76,8 +76,5 @@ mod1.movblk <- dsm.var.movblk(mod1, preddata, n.boot = 500,
    block.size = 3, samp.unit.name = "Transect.Label",
    off.set = preddata$area,
    bar = TRUE, bs.file = "mexico-bs.csv", ds.uncertainty = TRUE)
-# detach the data
-detach("mexdolphins")
 }
 }
-

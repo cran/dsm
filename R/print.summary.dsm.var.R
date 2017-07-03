@@ -35,7 +35,15 @@ print.summary.dsm.var<-function(x, ...){
     # CV calculated from the bootstrap, as the quantiles don't include
     # any of the uncertainty in the detection function.
     if(!x$ds.uncertainty){
-      # delta method asymptotic CI
+      # asymptotic CI
+      # this doesn't transform N, only se(N)
+      # this probably should do the following:
+      # lower =
+      #  qlnorm(alpha/2, log(x$pred.est) - 0.5*log(x$cv^2+1),
+      #         sqrt(log(x$cv^2+1)))
+      # upper =
+      #  qlnorm(1-alpha/2, log(x$pred.est) - 0.5*log(x$cv^2+1),
+      #         sqrt(log(x$cv^2+1)))
       unconditional.cv.square <- x$cv^2
       asymp.ci.c.term <- exp(qnorm(1-x$alpha/2) *
                               sqrt(log(1+unconditional.cv.square)))
@@ -61,7 +69,7 @@ print.summary.dsm.var<-function(x, ...){
     cat("Summary of uncertainty in a density surface model calculated\n")
     if(x$varprop){
       cat(" by variance propagation.\n")
-      cat("\nQuantiles of differences between fitted model and variance model\n")
+      cat("\nProbability of detection in fitted model and variance model\n")
       print(x$saved$model.check)
     }else{
       cat(" analytically for GAM, with delta method\n")
@@ -71,6 +79,15 @@ print.summary.dsm.var<-function(x, ...){
     cat("\n")
 
     ## calculate the CI around the abundance estimate
+
+      # this doesn't transform N, only se(N)
+      # this probably should do the following:
+      # lower =
+      #  qlnorm(alpha/2, log(x$pred.est) - 0.5*log(x$cv^2+1),
+      #         sqrt(log(x$cv^2+1)))
+      # upper =
+      #  qlnorm(1-alpha/2, log(x$pred.est) - 0.5*log(x$cv^2+1),
+      #         sqrt(log(x$cv^2+1)))
     unconditional.cv.square <- x$cv^2
     asymp.ci.c.term <- exp(qnorm(1-x$alpha/2) *
                            sqrt(log(1+unconditional.cv.square)))

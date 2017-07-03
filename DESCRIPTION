@@ -10,7 +10,7 @@ Description: Density surface modelling of line transect data. A Generalized
     of animal abundance from distance sampling (also presence/absence and strip
     transect) data. Several utility functions are provided for model checking,
     plotting and variance estimation.
-Version: 2.2.14
+Version: 2.2.15
 URL: http://github.com/DistanceDevelopment/dsm
 BugReports: https://github.com/DistanceDevelopment/dsm/issues
 Depends: R (>= 3.0), mgcv (>= 1.7), mrds (>= 2.1.16), numDeriv
@@ -18,6 +18,6 @@ Imports: nlme, ggplot2, statmod
 Suggests: Distance, tweedie
 RoxygenNote: 5.0.1
 NeedsCompilation: no
-Packaged: 2017-01-25 11:26:13 UTC; laura
+Packaged: 2017-07-03 22:50:58 UTC; laura
 Repository: CRAN
-Date/Publication: 2017-01-26 12:03:13
+Date/Publication: 2017-07-03 23:15:15 UTC

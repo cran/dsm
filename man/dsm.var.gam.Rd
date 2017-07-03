@@ -2,13 +2,13 @@
 % Please edit documentation in R/dsm.var.gam.R
 \name{dsm.var.gam}
 \alias{dsm.var.gam}
-\title{Variance estimation via Bayesian results}
+\title{Prediction variance estimation assuming independence}
 \usage{
 dsm.var.gam(dsm.obj, pred.data, off.set, seglen.varname = "Effort",
   type.pred = "response")
 }
 \arguments{
-\item{dsm.obj}{an object returned from running \code{\link{dsm}}.}
+\item{dsm.obj}{a model object returned from running \code{\link{dsm}}.}
 
 \item{pred.data}{either: a single prediction grid or list of prediction grids. Each grid should be a \code{data.frame} with the same columns as the original data.}
 
@@ -29,7 +29,7 @@ a list with elements
                      }
 }
 \description{
-Use results from the Bayesian interpretation of the GAM to obtain uncertainty estimates. See Wood (2006).
+If one is willing to assume the the detection function and spatial model are independent, this function will produce estimates of variance of predictions of abundance, using the result that squared coefficients of variation will add.
 }
 \details{
 This is based on \code{\link{dsm.var.prop}} taken from code by Mark Bravington and Sharon Hedley.
@@ -41,7 +41,6 @@ This is based on \code{\link{dsm.var.prop}} taken from code by Mark Bravington a
 
  # load the Gulf of Mexico dolphin data (see ?mexdolphins)
  data(mexdolphins)
- attach(mexdolphins)
 
  # fit a detection function and look at the summary
  hr.model <- ds(distdata, max(distdata$distance),
@@ -49,18 +48,13 @@ This is based on \code{\link{dsm.var.prop}} taken from code by Mark Bravington a
  summary(hr.model)
 
  # fit a simple smooth of x and y
- mod1 <- dsm(N~s(x,y), hr.model, segdata, obsdata)
+ mod1 <- dsm(count~s(x, y), hr.model, segdata, obsdata)
 
  # Calculate the variance
- mod1.var <- dsm.var.gam(mod1, preddata, off.set=preddata$area)
-
  # this will give a summary over the whole area in mexdolphins$preddata
-
-# detach the data
-detach("mexdolphins")
+ mod1.var <- dsm.var.gam(mod1, preddata, off.set=preddata$area)
 }
 }
 \author{
 David L. Miller
 }
-

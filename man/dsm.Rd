@@ -24,7 +24,7 @@ dsm(formula, ddf.obj, segment.data, observation.data, engine = "gam",
 
 \item{convert.units}{conversion factor to multiply the area of the segments by. See 'Units' below.}
 
-\item{family}{response distribution (popular choices include \code{\link{quasipoisson}}, \code{\link{Tweedie}} and \code{\link{negbin}}). Defaults to \code{quasipossion}.}
+\item{family}{response distribution (popular choices include \code{\link{quasipoisson}}, \code{\link{Tweedie}}/\code{\link{tw}} and \code{\link{negbin}}/\code{\link{nb}}). Defaults to \code{quasipossion}.}
 
 \item{group}{if \code{TRUE} the abundance of groups will be calculated rather than the abundance of individuals. Setting this option to \code{TRUE} is equivalent to setting the size of each group to be 1.}
 
@@ -55,7 +55,7 @@ Fits a density surface model (DSM) to detection adjusted counts from a spatially
 \details{
 The response (LHS of `formula`) can be one of the following:
 \tabular{ll}{
-  \code{n}, \code{count}, \code{N}, \code{abundance} \tab count in each segment\cr
+  \code{n}, \code{count}, \code{N} \tab count in each segment\cr
   \code{Nhat}, \code{abundance.est} \tab estimated abundance per segment, estimation is via a Horvitz-Thompson estimator. This should be used when there are covariates in the detection function.\cr
   \code{presence} \tab interpret the data as presence/absence (remember to change the \code{family} argument to \code{binomial()})\cr
   \code{D}, \code{density}, \code{Dhat}, \code{density.est} \tab density per segment\cr
@@ -82,22 +82,22 @@ It is often the case that distances are collected in metres and segment lengths 
 
 For large models, \code{engine="bam"} with \code{method="fREML"} may be useful. Models specified for \code{bam} should be as \code{gam}. READ \code{\link{bam}} before using this option; this option is considered EXPERIMENTAL at the moment. In particular note that the default basis choice (thin plate regression splines) will be slow and that in general fitting is less stable than when using \code{gam}. For negative binomial response, theta must be specified when using \code{bam}.
 }
+
 \examples{
+\dontrun{
 library(Distance)
 library(dsm)
 
 # load the Gulf of Mexico dolphin data (see ?mexdolphins)
 data(mexdolphins)
-attach(mexdolphins)
 
-\dontrun{
 # fit a detection function and look at the summary
 hr.model <- ds(distdata, max(distdata$distance),
                key = "hr", adjustment = NULL)
 summary(hr.model)
 
-# fit a simple smooth of x and y
-mod1 <- dsm(N~s(x,y), hr.model, segdata, obsdata)
+# fit a simple smooth of x and y to counts
+mod1 <- dsm(count~s(x,y), hr.model, segdata, obsdata)
 summary(mod1)
 
 # predict over a grid
@@ -109,11 +109,6 @@ sum(mod1.pred)
 # plot the smooth
 plot(mod1)
 }
-# detach the data
-detach("mexdolphins")
-}
-\author{
-David L. Miller
 }
 \references{
 Hedley, S. and S. T. Buckland. 2004. Spatial models for line transect sampling. JABES 9:181-199.
@@ -122,4 +117,6 @@ Miller, D. L., Burt, M. L., Rexstad, E. A., Thomas, L. (2013), Spatial models fo
 
 Wood, S.N. 2006. Generalized Additive Models: An Introduction with R. CRC/Chapman & Hall.
 }
-
+\author{
+David L. Miller
+}

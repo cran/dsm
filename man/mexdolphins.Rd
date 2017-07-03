@@ -3,6 +3,12 @@
 \docType{data}
 \name{mexdolphins}
 \alias{mexdolphins}
+\alias{obsdata}
+\alias{segdata}
+\alias{preddata}
+\alias{pred.polys}
+\alias{distdata}
+\alias{survey.area}
 \title{Pan-tropical spotted dolphins in the Gulf of Mexico}
 \description{
 Data from a combination of several NOAA shipboard surveys conducted on pan-tropical spotted dolphins in the Gulf of Mexico. 47 observations of groups of dolphins The group size was recorded, as well as the Beaufort sea state at the time of the observation. Coordinates for each observation and bathymetry data were also available as covariates for the analysis. A complete example analysis (and description of the data) is provided at \url{http://distancesampling.org/R/vignettes/mexico-analysis.html}.
@@ -13,4 +19,3 @@ Halpin, P.N., A.J. Read, E. Fujioka, B.D. Best, B. Donnelly, L.J. Hazen, C. Kot,
 NOAA Southeast Fisheries Science Center. 1996. Report of a Cetacean Survey of Oceanic and Selected Continental Shelf Waters of the Northern Gulf of Mexico aboard NOAA Ship Oregon II (Cruise 220)
 }
 \keyword{datasets}
-
