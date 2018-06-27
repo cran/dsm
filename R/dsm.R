@@ -7,7 +7,7 @@
 #' \tabular{ll}{
 #'   \code{n}, \code{count}, \code{N} \tab count in each segment\cr
 #'   \code{Nhat}, \code{abundance.est} \tab estimated abundance per segment, estimation is via a Horvitz-Thompson estimator. This should be used when there are covariates in the detection function.\cr
-#'   \code{presence} \tab interpret the data as presence/absence (remember to change the \code{family} argument to \code{binomial()})\cr
+#'   \code{presence} \tab interpret the data as presence/absence (remember to change the \code{family} argument to \code{binomial()}), detectability is not accounted for\cr
 #'   \code{D}, \code{density}, \code{Dhat}, \code{density.est} \tab density per segment\cr
 #'  }
 #'
@@ -40,7 +40,6 @@
 #' @param group if \code{TRUE} the abundance of groups will be calculated rather than the abundance of individuals. Setting this option to \code{TRUE} is equivalent to setting the size of each group to be 1.
 #' @param control the usual \code{control} argument for a \code{gam}; \code{keepData} must be \code{TRUE} for variance estimation to work (though this option cannot be set for GLMs or GAMMs.
 #' @param availability an availability bias used to scale the counts/estimated  counts by. If we have \code{N} animals in a segment, then \code{N/availability} will be entered into the model. Uncertainty in the availability is not handled at present.
-#' @param gamma parameter to \code{gam()} set to a value of 1.4 (from advice in Wood (2006)) such that the \code{gam()} is inclined to not 'overfit' when GCV is used to select the smoothing parameter (ignored for REML, see \code{link{gam}} for further details).
 #' @param strip.width if \code{ddf.obj}, above, is \code{NULL}, then this is where the strip width is specified (i.e. for a strip transect survey). This is sometimes (and more correctly) referred to as the half-width, i.e. right truncation minus left truncation.
 #' @param segment.area if `NULL` (default) segment areas will be calculated by multiplying the `Effort` column in `segment.data` by the (right minus left) truncation distance for the `ddf.obj` or by `strip.width`. Alternatively a vector of segment areas can be provided (which must be the same length as the number of rows in `segment.data`) or a character string giving the name of a column in `segment.data` which contains the areas. If \code{segment.area} is specified it takes precident.
 #' @param weights weights for each observation used in model fitting. The default, \code{weights=NULL}, weights each observation by its area (see Details). Setting a scalar value (e.g. \code{weights=1}) all observations are equally weighted.
@@ -87,7 +86,7 @@
 #'}
 dsm <- function(formula, ddf.obj, segment.data, observation.data,
                 engine="gam", convert.units=1,
-                family=quasipoisson(link="log"), group=FALSE, gamma=1.4,
+                family=quasipoisson(link="log"), group=FALSE,
                 control=list(keepData=TRUE), availability=1, strip.width=NULL,
                 segment.area=NULL, weights=NULL, transect="line", method="REML",
                 ...){
@@ -100,7 +99,17 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
     if(all(class(ddf.obj)=="dsmodel")){
       ddf.obj <- ddf.obj$ddf
     }
+    # check that we are doing points with points or lines with lines and not
+    # something weird
+    if(( ddf.obj$meta.data$point & transect!="point") ||
+       (!ddf.obj$meta.data$point & transect!="line")){
+      stop(paste0("Detection function and density surface model have mismatched transect types!",
+                  "\n  Detection function is ",
+                    c("line", "point")[ddf.obj$meta.data$point+1], " transect",
+                  "\n  Density surface model is ", transect, " transect\n"))
+    }
   }
+
 
   ## check the formula
   response <- as.character(formula)[2]
@@ -127,6 +136,18 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
     }
   }
 
+  # if we're doing presence ignore detection function
+  if(response == "presence"){
+    if(!is.null(ddf.obj)){
+      ddf.obj <- NULL
+      warning("Detection function supplied for presence/absence model but will be ignored")
+    }
+    if(is.null(strip.width)){
+      stop("strip.width must be supplied for presence/absence models")
+    }
+  }
+
+
   ## build the data
   dat <- make.data(response, ddf.obj, segment.data, observation.data,
                    group, convert.units, availability, strip.width,
@@ -142,7 +163,7 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
     if(is.null(weights)){
       weights <- dat$segment.area
     }else if(length(weights)==1){
-      weights <- rep(1, nrow(dat))
+      weights <- rep(weights, nrow(dat))
     }
   }
 
@@ -161,7 +182,6 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
   args <- list(formula = formula,
                family  = family,
                data    = dat,
-               gamma   = gamma,
                weights = weights,
                control = control,
                method  = method,
@@ -184,17 +204,14 @@ dsm <- function(formula, ddf.obj, segment.data, observation.data,
   if(engine == "gamm"){
     fit$gam$ddf <- ddf.obj
     fit$gam$data <- dat
-    fit$gam$gamma <- gamma
     # yucky way to get dsm.var/dsm.var.prop to work because gamm()
     #  doesn't store the call()
     fit$gam$gamm.call.list <- list(formula = formula,
                                    family  = family,
                                    data    = dat,
-                                   gamma   = gamma,
                                    control = control)
   }else{
     fit$ddf <- ddf.obj
-    fit$gamma <- gamma
   }
 
   class(fit) <- c("dsm",class(fit))

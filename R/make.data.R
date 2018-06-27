@@ -62,11 +62,12 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
     off.set<-"area"
   }else if(response == "presence"){
     responsedata <- aggregate(obsdata[,cluster.name],
-                                list(obsdata[,segnum.name]), sum)
+                              list(obsdata[,segnum.name]), sum)
     responsedata$x[responsedata$x>0] <- 1
     responsedata$x[responsedata$x<1] <- 0
     off.set <- "none"
   }
+
 
   ## warn if any observations were not allocated
   responsecheck <- aggregate(obsdata[,cluster.name],
@@ -78,6 +79,12 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
 
   # name the response data columns
   names(responsedata) <- c(segnum.name, response)
+
+  # if the Sample.Labels don't match at all then we need to stop, nothing
+  # can work as all the response values will be zero
+  if(!any(segdata[,segnum.name] %in% responsedata[,segnum.name])){
+    stop("No matches between segment and observation data.frame Sample.Labels!")
+  }
 
   # Next merge the response variable with the segment records and any
   # response variable that is NA should be assigned 0 because these
@@ -94,11 +101,9 @@ make.data <- function(response, ddfobject, segdata, obsdata, group,
     if(length(unique(fitted.p)) == 1){
       fitted.p <- rep(unique(fitted.p), nrow(dat))
     }else{
-#      stop("Covariate detection functions are not currently supported with effective area as the offset")
-message("Count model with detection function covariates at the segment level: this is EXPERIMENTAL!")
 
       if(ddfobject$method != "ds"){
-        stop("Only dsmodels are supported!")
+        stop("Only \"ds\" models are supported!")
       }
 
       # extract formula

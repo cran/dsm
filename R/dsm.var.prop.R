@@ -8,8 +8,10 @@
 #'
 #' Note that this routine simply calls \code{\link{dsm_varprop}}. If you don't require multiple prediction grids, the other routine will probably be faster.
 #'
+#' This routine is only useful if a detection function with covariates has been used in the DSM.
+#'
 #' @section Diagnostics:
-#' The summary output from the function includes a simply diagnostic that shows the average probability of detection from the "original" fitted model (the model supplied to this function; column \code{Fitted.model}) and the probability of detection from the refitted model (used for variance propagation; column \code{Refitted.model}) along with the standard error of the probability of detection from the fitted model (\code{Fitted.model.se}), at the unique values of any covariates used in the detection function. If there are large differences between the probabilities of detection then there are potentially problems with the fitted model, the variance propagation or both. This can be because the fitted model does not account for enough of the variability in the data and in refitting the variance model accounts for this in the random effect.
+#' The summary output from the function includes a simply diagnostic that shows the average probability of detection from the "original" fitted model (the model supplied to this function; column \code{Fitted.model}) and the probability of detection from the refitted model (used for variance propagation; column \code{Refitted.model}) along with the standard error of the probability of detection from the fitted model (\code{Fitted.model.se}), at the unique values of any factor covariates used in the detection function (for continous covariates the 5%, 50% and 95% quantiles are shown). If there are large differences between the probabilities of detection then there are potentially problems with the fitted model, the variance propagation or both. This can be because the fitted model does not account for enough of the variability in the data and in refitting the variance model accounts for this in the random effect.
 #'
 #' @section Limitations:
 #' Note that this routine is only useful if a detection function has been used in the DSM. It cannot be used when the \code{Nhat}, \code{abundance.est} responses are used. Importantly this requires that if the detection function has covariates, then these do not vary within a segment (so, for example covariates like sex cannot be used).
@@ -35,26 +37,26 @@
 #' @export
 #' @importFrom stats as.formula update
 #' @importFrom numDeriv grad
-#' @examples
-#' \dontrun{
-#'  library(Distance)
-#'  library(dsm)
-#'
-#'  # load the Gulf of Mexico dolphin data (see ?mexdolphins)
-#'  data(mexdolphins)
-#'
-#'  # fit a detection function
-#'  df <- ds(distdata, max(distdata$distance),
-#'           key = "hn", adjustment = NULL)
-#'
-#'  # fit a simple smooth of x and y
-#'  mod1 <- dsm(count~s(x, y), df, segdata, obsdata, family=tw())
-#'
-#'  # Calculate the variance
-#'  # this will give a summary over the whole area in mexdolphins$preddata
-#'  mod1.var <- dsm.var.prop(mod1, preddata, off.set=preddata$area)
-#'  summary(mod1.var)
-#' }
+# @examples
+# \dontrun{
+#  library(Distance)
+#  library(dsm)
+#
+#  # load the Gulf of Mexico dolphin data (see ?mexdolphins)
+#  data(mexdolphins)
+#
+#  # fit a detection function
+#  df <- ds(distdata, max(distdata$distance),
+#           key = "hn", adjustment = NULL)
+#
+#  # fit a simple smooth of x and y
+#  mod1 <- dsm(count~s(x, y), df, segdata, obsdata, family=tw())
+#
+#  # Calculate the variance
+#  # this will give a summary over the whole area in mexdolphins$preddata
+#  mod1.var <- dsm.var.prop(mod1, preddata, off.set=preddata$area)
+#  summary(mod1.var)
+# }
 dsm.var.prop <- function(dsm.obj, pred.data, off.set,
                          seglen.varname='Effort', type.pred="response") {
 
@@ -62,11 +64,6 @@ dsm.var.prop <- function(dsm.obj, pred.data, off.set,
   # die if we have a gamm
   if(any(class(dsm.obj)=="gamm")){
     stop("GAMMs are not supported.")
-  }
-
-  # check that there are no covariates in the df model
-  if(length(unique(dsm.obj$ddf$fitted)) > 1){
-    stop("Covariate detection functions are not currently supported within dsm.var.prop.")
   }
 
   # break if we use the wrong response

@@ -8,14 +8,14 @@
 #'
 #' For more information on how to construct the prediction grid \code{data.frame}, \code{newdata}, see \code{\link{predict.dsm}}.
 #'
-#' This routine is only useful if a detection function has been used in the DSM.
+#' This routine is only useful if a detection function with covariates has been used in the DSM.
 #'
 #' Note that we can use \code{var_type="Vc"} here (see \code{\link{gamObject}}), which is the variance-covariance matrix for the spatial model, corrected for smoothing parameter uncertainty. See Wood, Pya & S{\"a}fken (2016) for more information.
 #'
 #' Negative binomial models fitted using the \code{\link{nb}} family will give strange results (overly big variance estimates due to scale parameter issues) so \code{nb} models are automatically refitted with \code{\link{negbin}} (with a warning). It is probably worth refitting these models with \code{negbin} manually (perhaps giving a smallish range of possible values for the negative binomial parameter) to check that convergence was reached.
 #'
 #' @section Diagnostics:
-#' The summary output from the function includes a simply diagnostic that shows the average probability of detection from the "original" fitted model (the model supplied to this function; column \code{Fitted.model}) and the probability of detection from the refitted model (used for variance propagation; column \code{Refitted.model}) along with the standard error of the probability of detection from the fitted model (\code{Fitted.model.se}), at the unique values of any covariates used in the detection function. If there are large differences between the probabilities of detection then there are potentially problems with the fitted model, the variance propagation or both. This can be because the fitted model does not account for enough of the variability in the data and in refitting the variance model accounts for this in the random effect.
+#' The summary output from the function includes a simply diagnostic that shows the average probability of detection from the "original" fitted model (the model supplied to this function; column \code{Fitted.model}) and the probability of detection from the refitted model (used for variance propagation; column \code{Refitted.model}) along with the standard error of the probability of detection from the fitted model (\code{Fitted.model.se}), at the unique values of any factor covariates used in the detection function (for continous covariates the 5%, 50% and 95% quantiles are shown). If there are large differences between the probabilities of detection then there are potentially problems with the fitted model, the variance propagation or both. This can be because the fitted model does not account for enough of the variability in the data and in refitting the variance model accounts for this in the random effect.
 #'
 #'
 #' @return a list with elements
@@ -28,6 +28,7 @@
 #' @author David L. Miller, based on code from Mark V. Bravington and Sharon L. Hedley.
 #' @references
 #' Williams, R., Hedley, S.L., Branch, T.A., Bravington, M.V., Zerbini, A.N. and Findlay, K.P. (2011). Chilean Blue Whales as a Case Study to Illustrate Methods to Estimate Abundance and Evaluate Conservation Status of Rare Species. Conservation Biology 25(3), 526-535.
+#'
 #' Wood, S.N., Pya, N. and S{\"a}fken, B. (2016) Smoothing parameter and model selection for general smooth models. Journal of the American Statistical Association, 1-45.
 #'
 #'
@@ -37,27 +38,27 @@
 #' @param var_type which variance-covariance matrix should be used (\code{"Vp"} for variance-covariance conditional on smoothing parameter(s), \code{"Vc"} for unconditional). See \code{\link{gamObject}} for an details/explanation. If in doubt, stick with the default, \code{"Vp"}.
 #' @export
 #'
-#' @examples
-#' \dontrun{
-#' library(Distance)
-#' library(dsm)
-#'
-#' # load the Gulf of Mexico dolphin data (see ?mexdolphins)
-#' data(mexdolphins)
-#'
-#' # fit a detection function
-#' df <- ds(distdata, max(distdata$distance),
-#'          key = "hn", adjustment = NULL)
-#'
-#' # fit a simple smooth of x and y
-#' mod1 <- dsm(count~s(x, y), df, segdata, obsdata, family=tw())
-#'
-#' # Calculate the variance
-#' preddata$off.set <- preddata$area
-#' mod1.varp <- dsm_varprop(mod1, preddata)
-#' summary(mod1.varp)
-#' # this will give a summary over the whole area in mexdolphins$preddata
-#' }
+# @examples
+# \dontrun{
+# library(Distance)
+# library(dsm)
+#
+# # load the Gulf of Mexico dolphin data (see ?mexdolphins)
+# data(mexdolphins)
+#
+# # fit a detection function
+# df <- ds(distdata, max(distdata$distance),
+#          key = "hn", adjustment = NULL)
+#
+# # fit a simple smooth of x and y
+# mod1 <- dsm(count~s(x, y), df, segdata, obsdata, family=tw())
+#
+# # Calculate the variance
+# preddata$off.set <- preddata$area
+# mod1.varp <- dsm_varprop(mod1, preddata)
+# summary(mod1.varp)
+# # this will give a summary over the whole area in mexdolphins$preddata
+# }
 dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
 
   # die if the link isn't log
@@ -70,12 +71,12 @@ dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
     stop("var_type must be \"Vp\" or \"Vc\"")
   }
 
-  # check line transects
-  if(model$ddf$meta.data$point){
-    stop("Only line transects are supported at the moment")
+  if(model$ddf$ds$aux$ddfobj$scale$formula=="~1"){
+    stop("varprop doesn't work when there are no covariates in the detection function")
   }
 
-  # negative binomial work-around, see https://github.com/DistanceDevelopment/dsm/issues/29
+  # negative binomial work-around, see:
+  #  https://github.com/DistanceDevelopment/dsm/issues/29
   if(grepl("^Negative Binomial", model$family$family) &
      any(class(model$family) == "extended.family")){
     warning("Model was fitted using nb() family, refitting with negbin(). See ?dsm_varprop")
@@ -124,8 +125,17 @@ dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
     # repopulate with the duplicates back in
     mu <- mu[attr(u_ds_newdata, "index"), drop=FALSE]
 
-    # calculate log mu
-    ret <- linkfn(2 * mu * data$Effort)
+    # calculate offset
+    if(model$ddf$meta.data$point){
+      # calculate log effective circle area
+      # nb. predict() returns effective area of detection for points
+      ret <- linkfn(mu * data$Effort)
+    }else{
+      # calculate log effective strip width
+      ret <- linkfn(2 * mu * data$Effort)
+    }
+
+
     return(ret)
   }
 

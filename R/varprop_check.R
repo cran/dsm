@@ -8,11 +8,38 @@ varprop_check <- function(object){
   # get the data in order
   oddf <- object$old_model$ddf
   nd <- oddf$data
-  if(oddf$ds$aux$ddfobj$scale$formula=="~1"){
+  if(oddf$ds$aux$ddfobj$scale$formula == "~1"){
     nd <- nd[1, "distance", drop=FALSE]
   }else{
-    nd <- mgcv::uniquecombs(nd[, all.vars(as.formula(oddf$ds$aux$ddfobj$scale$formula)), drop=FALSE])
+    vars <- all.vars(as.formula(oddf$ds$aux$ddfobj$scale$formula))
+    nd <- mgcv::uniquecombs(nd[, vars, drop=FALSE])
+
+    # add distance column back in
     nd$distance <- 1
+    # faff to work out which summaries we need...
+    numeric_ind <- lapply(nd, is.factor)
+    numeric_ind[["distance"]] <- NULL
+    numeric_ind <- which(!unlist(numeric_ind))
+    for(i in seq_along(numeric_ind)){
+      this_ind <- numeric_ind[i]
+
+      quants <- quantile(nd[,this_ind], c(0.05, .5, .95))
+      #quants <- median(nd[, this_ind])
+
+      colname <- colnames(nd)[this_ind]
+      nd[[colname]] <- NULL
+      nd <- mgcv::uniquecombs(nd)
+
+      quants <- quants[rep(1:3, nrow(nd))]
+
+      nd <- nd[rep(1:nrow(nd), 3), , drop=FALSE]
+      nd[[colname]] <- quants
+      #nd <- cbind(nd, quants)
+      #names(nd)[ncol(nd)] <- colname
+
+    }
+
+    nd <- mgcv::uniquecombs(nd)
   }
   rownames(nd) <- NULL
 
@@ -43,6 +70,8 @@ varprop_check <- function(object){
                                    "Refitted model"    = new_p$fitted)
   nd$distance <- NULL
   varprop_diagnostic <- cbind.data.frame(nd, varprop_diagnostic)
+  # sort by variable value
+  varprop_diagnostic <- varprop_diagnostic[order(nd[, 1], decreasing=FALSE), ]
 
   return(varprop_diagnostic)
 }
