@@ -6,10 +6,10 @@
 or density.}
 \usage{
 dsm(formula, ddf.obj, segment.data, observation.data, engine = "gam",
-  convert.units = 1, family = quasipoisson(link = "log"), group = FALSE,
-  control = list(keepData = TRUE), availability = 1, strip.width = NULL,
-  segment.area = NULL, weights = NULL, transect = "line",
-  method = "REML", ...)
+  convert.units = 1, family = quasipoisson(link = "log"),
+  group = FALSE, control = list(keepData = TRUE), availability = 1,
+  strip.width = NULL, segment.area = NULL, weights = NULL,
+  transect = "line", method = "REML", ...)
 }
 \arguments{
 \item{formula}{formula for the surface. This should be a valid \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}} formula. See "Details", below, for how to define the response.}
@@ -40,7 +40,7 @@ dsm(formula, ddf.obj, segment.data, observation.data, engine = "gam",
 
 \item{transect}{type of transect (\code{"line"}, the default or \code{"point"}). This is overridden by the detection function transect type, this is usually only necessary when no detection function is specified.}
 
-\item{method}{The smoothing parameter estimation method. Default is \code{"REML"}, using REstricted Maximum Likelihood. See \code{\link{gam}} for other options. Ignored for \code{engine="glm"}.}
+\item{method}{The smoothing parameter estimation method. Default is \code{"REML"}, using Restricted Maximum Likelihood. See \code{\link{gam}} for other options. Ignored for \code{engine="glm"}.}
 
 \item{\dots}{anything else to be passed straight to \code{\link{glm}}/\code{\link{gam}}/\code{\link{gamm}}/\code{\link{bam}}.}
 }
