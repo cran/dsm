@@ -4,9 +4,18 @@
 \alias{dsm.var.movblk}
 \title{Variance estimation via parametric moving block bootstrap}
 \usage{
-dsm.var.movblk(dsm.object, pred.data, n.boot, block.size, off.set,
-  ds.uncertainty = FALSE, samp.unit.name = "Transect.Label",
-  progress.file = NULL, bs.file = NULL, bar = TRUE)
+dsm.var.movblk(
+  dsm.object,
+  pred.data,
+  n.boot,
+  block.size,
+  off.set,
+  ds.uncertainty = FALSE,
+  samp.unit.name = "Transect.Label",
+  progress.file = NULL,
+  bs.file = NULL,
+  bar = TRUE
+)
 }
 \arguments{
 \item{dsm.object}{object returned from \code{\link{dsm}}.}
@@ -28,7 +37,7 @@ Details, below. Note that this feature is EXPERIMENTAL at the moment.}
 \item{progress.file}{path to a file to be used (usually by Distance) to
 generate a progress bar (default \code{NULL} -- no file written).}
 
-\item{bs.file}{path to a file to store each boostrap round. This stores all
+\item{bs.file}{path to a file to store each bootstrap round. This stores all
 of the bootstrap results rather than just the summaries, enabling
 outliers to be detected and removed. (Default \code{NULL}).}
 
