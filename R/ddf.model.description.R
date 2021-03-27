@@ -1,23 +1,38 @@
-ddf.model.description<-function(model){
 # builds the description of the model to be printed
-# only used internally.
+# only used internally
+ddf.model.description <- function(model){
 
-  key<-switch(model$ds$aux$ddfobj$type,
-              hn="Half-normal",
-              hr="Hazard-rate")
-  mod.str<-paste(key,"key function")
+  if(any(class(model)=="fake_ddf")){
+    return("No detection function")
+  }
+
+  if(model$method=="io"){
+    mod.str <- "MR model: Independent observer, DS model:"
+    model <- model$ds
+  }else if(model$method=="trial"){
+    mod.str <- "MR model: Trial, DS model:"
+    model <- model$ds
+  }else{
+    mod.str <- ""
+  }
+
+
+  key <- switch(model$ds$aux$ddfobj$type,
+                hn = "Half-normal",
+                hr = "Hazard-rate")
+  mod.str <- paste0(mod.str, key, " key function")
   if(!is.null(model$ds$aux$ddfobj$adjustment)){
-    adj.series<-switch(model$ds$aux$ddfobj$adjustment$series,
-                       cos="cosine",
-                       herm="Hermite polynomial",
-                       poly="simple polynomial")
-    mod.str<-paste(mod.str,"with",adj.series,"adjustment term")
+    adj.series <- switch(model$ds$aux$ddfobj$adjustment$series,
+                        cos  = "cosine",
+                        herm = "Hermite polynomial",
+                        poly = "simple polynomial")
+    mod.str <- paste(mod.str, "with", adj.series, "adjustment term")
 
-    adj.order<-model$ds$aux$ddfobj$adjustment$order
+    adj.order <- model$ds$aux$ddfobj$adjustment$order
     if(length(adj.order)>1){
-      mod.str<-paste(mod.str,"s",sep="")
+      mod.str <- paste(mod.str, "s", sep="")
     }
-    mod.str<-paste(mod.str,"of order",paste(adj.order,collapse=","))
+    mod.str <- paste(mod.str, "of order", paste(adj.order, collapse=","))
   }
 
   return(mod.str)

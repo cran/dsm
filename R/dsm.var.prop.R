@@ -14,7 +14,7 @@
 #' The summary output from the function includes a simply diagnostic that shows the average probability of detection from the "original" fitted model (the model supplied to this function; column \code{Fitted.model}) and the probability of detection from the refitted model (used for variance propagation; column \code{Refitted.model}) along with the standard error of the probability of detection from the fitted model (\code{Fitted.model.se}), at the unique values of any factor covariates used in the detection function (for continuous covariates the 5%, 50% and 95% quantiles are shown). If there are large differences between the probabilities of detection then there are potentially problems with the fitted model, the variance propagation or both. This can be because the fitted model does not account for enough of the variability in the data and in refitting the variance model accounts for this in the random effect.
 #'
 #' @section Limitations:
-#' Note that this routine is only useful if a detection function has been used in the DSM. It cannot be used when the \code{Nhat}, \code{abundance.est} responses are used. Importantly this requires that if the detection function has covariates, then these do not vary within a segment (so, for example covariates like sex cannot be used).
+#' Note that this routine is only useful if a detection function has been used in the DSM. It cannot be used when the \code{abundance.est} or \code{density.est} responses are used. Importantly this requires that if the detection function has covariates, then these do not vary within a segment (so, for example covariates like sex cannot be used).
 #'
 #' @inheritParams dsm.var.gam
 #' @return a list with elements
@@ -31,6 +31,8 @@
 #'                      }
 #' @author Mark V. Bravington, Sharon L. Hedley. Bugs added by David L. Miller.
 #' @references
+#' Bravington, M. V., Miller, D. L., & Hedley, S. L. (2021). Variance Propagation for Density Surface Models. Journal of Agricultural, Biological and Environmental Statistics. https://doi.org/10.1007/s13253-021-00438-2
+#'
 #' Williams, R., Hedley, S.L., Branch, T.A., Bravington, M.V., Zerbini, A.N. and Findlay, K.P. (2011). Chilean Blue Whales as a Case Study to Illustrate Methods to Estimate Abundance and Evaluate Conservation Status of Rare Species. Conservation Biology 25(3), 526-535.
 #' @export
 #' @importFrom stats as.formula update
@@ -65,13 +67,13 @@ dsm.var.prop <- function(dsm.obj, pred.data, off.set,
   }
 
   # break if we use the wrong response
-  if(!(as.character(dsm.obj$formula)[2] %in% c("N", "n", "count"))){
+  if(as.character(dsm.obj$formula)[2] != "count"){
     stop("Variance propagation can only be used with count as the response.")
   }
 
   # if there is no ddf object, then we should stop!
   # thanks to Adrian Schiavini for spotting this
-  if(is.null(dsm.obj$ddf)){
+  if(any(class(dsm.obj$ddf)=="fake_ddf")){
     stop("No detection function in this analysis, use dsm.var.gam")
   }
 
@@ -105,7 +107,6 @@ dsm.var.prop <- function(dsm.obj, pred.data, off.set,
 
   # mudge together all the prediction data
   all_preddata <- do.call("rbind", pred.data)
-  all_preddata[["XX"]] <- matrix(0, nrow(all_preddata), length(dsm.obj$ddf$par))
 
   ## end data setup
 
@@ -123,6 +124,13 @@ dsm.var.prop <- function(dsm.obj, pred.data, off.set,
   varp <- dsm_varprop(dsm.obj, pred.data[[1]])
   refit <- varp$refit
 
+  # add extra cols
+  if(all(class(dsm.obj$ddf) == "list")){
+    df_npars <- sum(unlist(lapply(dsm.obj$ddf,function(x) length(x$par))))
+  }else{
+    df_npars <- length(dsm.obj$ddf$par)
+  }
+  all_preddata[["XX"]] <- matrix(0, nrow(all_preddata), df_npars)
 
   # get a big Lp matrix now and just get rows below
   Lp_big <- predict(refit, newdata=all_preddata, type="lpmatrix")

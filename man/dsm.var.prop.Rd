@@ -56,10 +56,12 @@ The summary output from the function includes a simply diagnostic that shows the
 
 \section{Limitations}{
 
-Note that this routine is only useful if a detection function has been used in the DSM. It cannot be used when the \code{Nhat}, \code{abundance.est} responses are used. Importantly this requires that if the detection function has covariates, then these do not vary within a segment (so, for example covariates like sex cannot be used).
+Note that this routine is only useful if a detection function has been used in the DSM. It cannot be used when the \code{abundance.est} or \code{density.est} responses are used. Importantly this requires that if the detection function has covariates, then these do not vary within a segment (so, for example covariates like sex cannot be used).
 }
 
 \references{
+Bravington, M. V., Miller, D. L., & Hedley, S. L. (2021). Variance Propagation for Density Surface Models. Journal of Agricultural, Biological and Environmental Statistics. https://doi.org/10.1007/s13253-021-00438-2
+
 Williams, R., Hedley, S.L., Branch, T.A., Bravington, M.V., Zerbini, A.N. and Findlay, K.P. (2011). Chilean Blue Whales as a Case Study to Illustrate Methods to Estimate Abundance and Evaluate Conservation Status of Rare Species. Conservation Biology 25(3), 526-535.
 }
 \author{

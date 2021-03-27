@@ -25,18 +25,21 @@
 #'              \code{var} \tab total variance calculated over all of \code{newdata}\cr
 #'              \code{ses} \tab standard error for each prediction cell in \code{newdata}\cr
 #'  }
+#' if \code{newdata=NULL} then the last three entries are \code{NA}.
 #' @author David L. Miller, based on code from Mark V. Bravington and Sharon L. Hedley.
 #' @references
+#' Bravington, M. V., Miller, D. L., & Hedley, S. L. (2021). Variance Propagation for Density Surface Models. Journal of Agricultural, Biological and Environmental Statistics. https://doi.org/10.1007/s13253-021-00438-2
+#'
 #' Williams, R., Hedley, S.L., Branch, T.A., Bravington, M.V., Zerbini, A.N. and Findlay, K.P. (2011). Chilean Blue Whales as a Case Study to Illustrate Methods to Estimate Abundance and Evaluate Conservation Status of Rare Species. Conservation Biology 25(3), 526-535.
 #'
 #' Wood, S.N., Pya, N. and S{\"a}fken, B. (2016) Smoothing parameter and model selection for general smooth models. Journal of the American Statistical Association, 1-45.
 #'
-#'
-#' @param model a fitted \code{\link{dsm}}
-#' @param newdata the prediction grid
-#' @param trace for debugging, see how the scale parameter estimation is going
+#' @param model a fitted \code{\link{dsm}}.
+#' @param newdata the prediction grid. Set to \code{NULL} to avoid making predictions and just return model objects.
+#' @param trace for debugging, see how the scale parameter estimation is going.
 #' @param var_type which variance-covariance matrix should be used (\code{"Vp"} for variance-covariance conditional on smoothing parameter(s), \code{"Vc"} for unconditional). See \code{\link{gamObject}} for an details/explanation. If in doubt, stick with the default, \code{"Vp"}.
 #' @export
+#' @importFrom utils relist
 #'
 # @examples
 # \dontrun{
@@ -59,7 +62,7 @@
 # summary(mod1.varp)
 # # this will give a summary over the whole area in mexdolphins$preddata
 # }
-dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
+dsm_varprop <- function(model, newdata=NULL, trace=FALSE, var_type="Vp"){
 
   # die if the link isn't log
   if(model$family$link != "log"){
@@ -69,10 +72,6 @@ dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
   # check for valid var_type
   if(!(var_type %in% c("Vp","Vc"))){
     stop("var_type must be \"Vp\" or \"Vc\"")
-  }
-
-  if(model$ddf$ds$aux$ddfobj$scale$formula=="~1"){
-    stop("varprop doesn't work when there are no covariates in the detection function")
   }
 
   # extract the link & invlink
@@ -89,61 +88,130 @@ dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
   # remove the function
   this_call[1] <- NULL
 
-  # extract the detection function
+  # extract the detection function(s)
   ddf <- model$ddf
-
-  # function to differentiate
-  mu_fn <- function(par, linkfn, ddf, data, ds_newdata){
-    # set the detection function parameters to be par
-    ddf$par <- par
-
-    # calculate mu (effective strip width)
-    mu <- predict(ddf, newdata=ds_newdata, esw=TRUE, compute=TRUE)$fitted
-
-    # repopulate with the duplicates back in
-    mu <- mu[attr(u_ds_newdata, "index"), drop=FALSE]
-
-    # calculate offset
-    if(model$ddf$meta.data$point){
-      # calculate log effective circle area
-      # nb. predict() returns effective area of detection for points
-      ret <- linkfn(mu * data$Effort)
-    }else{
-      # calculate log effective strip width
-      ret <- linkfn(2 * mu * data$Effort)
+  if(all(class(ddf)!="list")){
+    ddf <- list(ddf)
+    # work around for dsms fitted in previous versions
+    if(is.null(model$data$ddfobj)){
+      model$data$ddfobj <- 1
     }
+  }
+
+  # get detection function info
+  parskel <- list()
+  for(i in seq_along(ddf)){
+    parskel[[i]] <- ddf[[i]]$par
+  }
+  npars <- lapply(parskel, length)
+
+  # new function to differentiate
+  mu_fn <- function(par, linkfn, ddf, data, ds_newdata, skel){
+
+    # put the parameter flesh back on the list bones?
+    fleshy <- relist(par, skel)
+
+    ret <- rep(0, nrow(data))
+
+    # loop over the detection functions we have
+    for(i in seq_along(ddf)){
+      this_ddf <- ddf[[i]]
 
 
+      # if we don't have a real detection function
+      if("fake_ddf" %in% class(this_ddf)){
+        next
+      }
+      # set the detection function parameters to be par
+      this_ddf <- set_ddf_par(fleshy[[i]], this_ddf)
+
+      # for io we need new data from both observers
+      if(this_ddf$method == "io"){
+        ds_newdata[[i]] <- rbind(ds_newdata[[i]], ds_newdata[[i]])
+        ds_newdata[[i]]$observer <- c(rep(1, nrow(ds_newdata[[i]])/2),
+                                      rep(2, nrow(ds_newdata[[i]])/2))
+        # note that predict.io will return a vector of the correct
+        # length
+      }
+      # calculate probability of detection
+      this_p <- predict(this_ddf, newdata=ds_newdata[[i]],
+                        compute=TRUE)$fitted
+
+      # repopulate with the duplicates back in
+      this_p <- this_p[attr(ds_newdata[[i]], "index"), drop=FALSE]
+
+      # what is the width?
+      if(this_ddf$method == "io"){
+        this_width <- this_ddf$ds$meta.data$width
+      }else{
+        this_width <- this_ddf$meta.data$width
+      }
+
+      # calculate offset
+      if(this_ddf$meta.data$point){
+        # calculate log effective circle area
+        # nb. predict() returns effective area of detection for points
+        ret[data$ddfobj==i] <- linkfn(this_p * pi * this_width^2 *
+                                      data$Effort[data$ddfobj==i])
+      }else{
+        # calculate log effective strip width
+        ret[data$ddfobj==i] <- linkfn(2 * this_width * this_p *
+                                      data$Effort[data$ddfobj==i])
+      }
+    }
     return(ret)
   }
 
-  # extract the formula
-  ds_formula <- ddf$ds$aux$ddfobj$scale$formula
+  # now form the data structures we need to calculate the derivatives
+  # using the function above...
+  ds_newdata <- list()
+  u_ds_newdata <- list()
+  for(i in seq_along(ddf)){
 
-  # if we don't have covariates then just setup the
-  # data for predict.ds to be a distance of 0, which will be
-  # ignored anyway
-  if(ds_formula=="~1"){
-    ds_newdata <- data.frame(distance=rep(0, nrow(model$data)))
-  }else{
-    # otherwise need the covars that are in the data (that we saved
-    # with keepData=TRUE :))
-    ds_newdata <- model$data[, all.vars(as.formula(ds_formula)), drop=FALSE]
-    ds_newdata$distance <- 0
+    # get this detection function
+    this_ddf <- ddf[[i]]
+    # get all the covariates in this model
+    df_vars <- all_df_vars(this_ddf)
+
+    # if we don't have a real detection function
+    if("fake_ddf" %in% class(this_ddf)){
+      ds_newdata[[i]] <- NA
+      u_ds_newdata[[i]] <- NA
+      next
+    }
+
+    # if we don't have covariates
+    # then just setup the data for predict.ds to be a distance of 0,
+    # which will be ignored anyway
+    if(length(df_vars)==0){
+      ds_newdata[[i]] <- data.frame(distance=rep(0, sum(model$data$ddfobj==i)))
+    }else{
+      # otherwise need the covars that are in the data (that we saved
+      # with keepData=TRUE :))
+      ds_newdata[[i]] <- model$data[model$data$ddfobj==i, ]
+      ds_newdata[[i]] <- ds_newdata[[i]][ , df_vars, drop=FALSE]
+      ds_newdata[[i]]$distance <- 0
+    }
+
+    if(this_ddf$method == "io"){
+      ds_newdata[[i]]$observer <- 1
+    }
+
+
+    # probably a lot of duplicated stuff in the above, so let's just
+    # pass the unique combinations
+    # inside mu_fn will return the right length
+    u_ds_newdata[[i]] <- mgcv::uniquecombs(ds_newdata[[i]])
+
   }
-
-  # probably a lot of duplicated stuff in the above, so let's just
-  # pass the unique combinations
-  # inside mu_fn will return the right length
-  u_ds_newdata <- mgcv::uniquecombs(ds_newdata)
 
   # find the derivatives of log(mu)
-  firstD <- numderiv(mu_fn, ddf$par, linkfn=linkfn, ddf=ddf,
-                     data=model$data, ds_newdata=u_ds_newdata)
+  pars <- unlist(parskel)
+  firstD <- numderiv(mu_fn, pars, linkfn=linkfn, ddf=ddf,
+                     data=model$data, ds_newdata=u_ds_newdata, skel=parskel)
   if(!is.matrix(firstD)){
-    firstD <- matrix(firstD, ncol=length(ddf$par))
+    firstD <- matrix(firstD, ncol=length(pars))
   }
-
 
   # put that in the data
   dat <- model$data
@@ -159,19 +227,37 @@ dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
                                  collapse=" "), " + XX"))
   # update data
   this_call$data <- dat
-  # add paraPen bit
-  # hessian needs to be 2nd REAL Hessian not DS thing
-  # that lives in $hessian
-  opt_details <- attr(ddf$ds,"details")
-  if(is.matrix(opt_details)){
-    hess <- opt_details[nrow(opt_details),]$nhatend
-  }else{
-    hess <- opt_details$nhatend
+
+  # now form the paraPen bit
+  hess <- matrix(0, length(pars), length(pars))
+  ii <- 1
+
+  # loop over our detection functions, extracting the hessian
+  for(i in seq_along(ddf)){
+    this_ddf <- ddf[[i]]
+
+    if("fake_ddf" %in% class(this_ddf)){
+      next
+    }
+#    opt_details <- attr(this_ddf$ds, "details")
+#    if(is.matrix(opt_details)){
+#      this_hess <- opt_details[nrow(opt_details), ]$nhatend
+#    }else{
+#      this_hess <- opt_details$nhatend
+#    }
+#    if(any(is.na(this_hess))){
+#      # fall back to DS use if things are bad
+#      this_hess <- this_ddf$hessian
+#    }
+
+    this_hess <- get_hessian(this_ddf)
+
+    # drop that matrix into the big hessian
+    hess[ii:(ii+nrow(this_hess)-1), ii:(ii+ncol(this_hess)-1)] <- this_hess
+
+    ii <- ii+nrow(this_hess)
   }
-  if(any(is.na(hess))){
-    # fall back to DS use if things are bad
-    hess <- ddf$hessian
-  }
+
   this_call$paraPen <- c(this_call$paraPen, list(XX=list(hess)))
   # tell gam.fixed.priors what to look for
   this_call$fixed.priors <- "XX"
@@ -185,8 +271,20 @@ dsm_varprop <- function(model, newdata, trace=FALSE, var_type="Vp"){
   ## refit the model
   refit <- do.call("gam.fixed.priors", this_call)
   refit$data <- dat
+  refit$ddf <- ddf
   class(refit) <- c("dsm", class(refit))
 
+  # if no newdata was supplied warn and return
+  if(is.null(newdata)){
+    warning("No newdata provided, no predictions returned.")
+    ret <- list(old_model = model,
+                refit     = refit,
+                pred      = NA,
+                var       = NA,
+                ses       = NA)
+    class(ret) <- "dsm_varprop"
+    return(ret)
+  }
   ## now do some predictions
 
   # make some zeros for the paraPen term so they have no mean effect

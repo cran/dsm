@@ -13,8 +13,12 @@
 #' @importFrom stats qnorm update.formula
 summary.dsm_varprop <- function(object, alpha=0.05, ...){
 
+  if(all(is.na(object$pred)) & all(is.na(object$var)) & all(is.na(object$ses))){
+    stop("Cannot get summary when newdata=NULL, rerun dsm_varprop with prediction data")
+  }
+
   # storage
-  sinfo<-list()
+  sinfo <- list()
   # save the alpha value for cis
   sinfo$alpha <- alpha
 
@@ -28,12 +32,21 @@ summary.dsm_varprop <- function(object, alpha=0.05, ...){
   # calculate the CV for the whole model
   sinfo$cv <- sqrt(sinfo$var)/sinfo$pred.est
 
-  # detection function CV too
-  ddf.summary <- summary(object$old_model$ddf)
+  if(!all(class(object$old_model$ddf) == "list")){
+    object$old_model$ddf <- list(object$old_model$ddf)
+  }
 
-  cvp.sq <- (ddf.summary$average.p.se/
-             ddf.summary$average.p)^2
-  sinfo$detfct.cv <- sqrt(cvp.sq)
+  sinfo$detfct.cv <- c()
+
+  for(i in seq_along(object$old_model$ddf)){
+
+    # detection function CV too
+    ddf.summary <- summary(object$old_model$ddf[[i]])
+
+    cvp.sq <- (ddf.summary$average.p.se/
+               ddf.summary$average.p)^2
+    sinfo$detfct.cv <- c(sinfo$detfct.cv, sqrt(cvp.sq))
+  }
 
   # save model check diagnostic
   sinfo$varprop_diagnostic <- varprop_check(object)
