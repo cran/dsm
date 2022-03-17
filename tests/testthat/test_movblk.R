@@ -1,7 +1,3 @@
-library(dsm)
-library(Distance)
-library(testthat)
-
 cv.tol<-1e-5
 N.tol<-1e-4
 
@@ -10,6 +6,7 @@ N.tol<-1e-4
 ## serves us fine for the purpose of these tests.
 
 context("Moving block bootstrap")
+library(Distance)
 
 # load the Gulf of Mexico dolphin data
 data(mexdolphins)

@@ -1,13 +1,15 @@
 #' Detection function objects when detection is certain
 #'
-#' Create a detection function object for strip/plot surveys for use in density surface models.
+#' Create a detection function object for strip/plot surveys for use in density
+#' surface models.
 #'
 #' @export
-#' @param object numeric vector of object identifiers, relating to the \code{object} field in the observation data of the DSM.
+#' @param object numeric vector of object identifiers, relating to the `object`
+#' field in the observation data of the DSM.
 #' @param size group size for each observation (default all groups size 1)
 #' @param width right truncation
 #' @param left left truncation (default 0, no left truncation)
-#' @param transect \code{"line"} or \code{"point"} transect
+#' @param transect `"line"` or `"point"` transect
 #' @author David L Miller
 dummy_ddf <- function(object, size=1, width, left=0, transect="line"){
 
@@ -53,13 +55,15 @@ dummy_ddf <- function(object, size=1, width, left=0, transect="line"){
 
 #' Prediction for fake detection functions
 #'
-#' Prediction function for dummy detection functions. The function returns as many 1s as there are rows in \code{newdata}. If \code{esw=TRUE} then the strip width is returned.
+#' Prediction function for dummy detection functions. The function returns as
+#' many 1s as there are rows in \code{newdata}. If \code{esw=TRUE} then the
+#' strip width is returned.
 #'
 #' @export
 #' @param object model object
 #' @param newdata how many 1s should we return?
-#' @param compute unused, for compatability with \code{predict} from \code{mrds}
-#' @param int.range unused, for compatability with \code{predict} from \code{mrds}
+#' @param compute unused, compatibility with [`mrds::predict`][mrds::predict]
+#' @param int.range unused, compatability with [`mrds::predict`][mrds::predict]
 #' @param esw should the strip width be returned?
 #' @param \dots for S3 consistency
 #' @author David L Miller

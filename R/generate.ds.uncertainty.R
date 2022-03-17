@@ -1,11 +1,17 @@
 #' Generate data from a fitted detection function
 #'
-#' When \code{ds.uncertainty} is \code{TRUE}, this procedure generates data from the fitted detection function (assuming that it is correct).
+#' When using [`dsm.var.movblk`][dsm.var.movblk] if `ds.uncertainty=TRUE`, this
+#' procedure generates data from the fitted detection function (assuming that
+#' it is correct).
 #'
-#' @param ds.object a fitted detection function object (as returned by a call to \code{ddf.ds()}.
+#' @param ds.object a fitted detection function object (as returned by a call
+#' to [`ddf.ds`][mrds::ddf.ds]).
 #'
 #'
-#' @note This function changes the random number generator seed. To avoid any potential side-effects, use something like: \code{seed <- get(".Random.seed",envir=.GlobalEnv)} before running code and \code{assign(".Random.seed",seed,envir=.GlobalEnv)} after.
+#' @note This function changes the random number generator seed. To avoid any
+#' potential side-effects, use something like: `seed <-
+#' get(".Random.seed",envir=.GlobalEnv)` before running code and
+#' `assign(".Random.seed",seed,envir=.GlobalEnv)` after.
 #' @export
 #' @author David L. Miller
 #' @importFrom stats runif rnorm fitted
@@ -93,8 +99,8 @@ generate.ds.uncertainty <- function(ds.object){
     # make sure that we got the right number
     dists <- dists[1:n.ds.samples]
     dists <- data.frame(distance = dists,
-                        detected = rep(1,length(dists)),
-                        object   = 1:length(dists))
+                        detected = rep(1, length(dists)),
+                        object   = seq_len(length(dists)))
 
     # fit the model to the new data
     ddf.call <- ds.object$call

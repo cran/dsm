@@ -1,12 +1,11 @@
 # test that we can use glms as models
-library(dsm)
-library(Distance)
-library(testthat)
 
 lnl.tol<-1e-4
 par.tol<-1e-6
 
 context("Do GLMs work")
+
+library(Distance)
 
 # load the Gulf of Mexico dolphin data
 data(mexdolphins)

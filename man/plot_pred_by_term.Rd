@@ -7,17 +7,21 @@
 plot_pred_by_term(dsm.obj, data, location_cov = c("x", "y"))
 }
 \arguments{
-\item{dsm.obj}{fitted \code{dsm} object}
+\item{dsm.obj}{fitted \code{\link{dsm}} object}
 
-\item{data}{data to use to plot (often the same as the precition grid), data should also include \code{width} and \code{height} columns for plotting}
+\item{data}{data to use to plot (often the same as the prediction grid), data
+should also include \code{width} and \code{height} columns for plotting}
 
-\item{location_cov}{which covariates to plot by (usually 2, spatial covariates, by default \code{=c("x","y")}}
+\item{location_cov}{which covariates to plot by (usually 2, spatial
+covariates, by default \code{c("x", "y")}}
 }
 \value{
 a \code{ggplot2} plot
 }
 \description{
-Plot the effect of each smooth in the model spatially. For each term in the model, plot its effect in space. Plots are made on the same scale, so that the relative influence of each smooth can be seen.
+Plot the effect of each smooth in the model spatially. For each term in the
+model, plot its effect in space. Plots are made on the same scale, so that
+the relative influence of each smooth can be seen.
 }
 \examples{
 \dontrun{
@@ -26,7 +30,7 @@ library(dsm)
 
 # load the Gulf of Mexico dolphin data and fit a model
 data(mexdolphins)
-hr.model <- ds(distdata, max(distdata$distance),
+hr.model <- ds(distdata, truncation=6000,
                key = "hr", adjustment = NULL)
 mod1 <- dsm(count~s(x,y) + s(depth), hr.model, segdata, obsdata)
 
